@@ -6,7 +6,9 @@
 <script src="https://code.jquery.com/jquery-2.1.3.min.js"></script>
 <script>
 var Skill = {
-	Pistols: "Pistols"
+	Pistols: "Pistols",
+	Automatics: "Automatics",
+	LongArms: "LongArms"
 };
 
 var FireModeEnum = function(name, bulletsUsed, defenseMod, causesProgressiveRecoil) {
@@ -96,27 +98,28 @@ function Initiative(modifier, bonusDice) {
 	};
 }
 
-function Npc(name, body, agility, reaction, strength, willpower, logic, intuition, charisma, edge, magic, essence, armor, skills, guns) {
+function Npc(name, body, agility, reaction, strength, willpower, logic, intuition, charisma, edge, magic, essence, armor, skills, guns, bonusInitiativeDice) {
 	var self = this;
 	self.name = name;
-	self.body = 3;
-	self.agility = 6;
-	self.reaction = 3;
-	self.strength = ko.observable(3);
-	self.willpower = 3;
-	self.logic = 3;
-	self.intuition = 3;
-	self.charisma = 3;
-	self.edge = 3;
-	self.magic = 0;
-	self.essence = 6;
-	self.armor = 0;
+	self.body = body;
+	self.agility = agility;
+	self.reaction = reaction;
+	self.strength = ko.observable(strength);
+	self.willpower = willpower;
+	self.logic = logic;
+	self.intuition = intuition;
+	self.charisma = charisma;
+	self.edge = edge;
+	self.magic = magic;
+	self.essence = essence;
+	self.armor = armor;
 	self.recoilCompensation = ko.computed(function() { return Math.ceil(self.strength() / 3) + 1; });
 	self.meleeWeapons = ko.observableArray([]);
-	self.skills = {};
-	self.skills[Skill.Pistols] = 6;
+	self.skills = skills;
 	self.statuses = ko.observableArray([]);
-	self.initiative = ko.computed(function() { return new Initiative(self.reaction + self.intuition, 1); });
+	self.initiative = ko.computed(function() { 
+		return new Initiative(self.reaction + self.intuition, bonusInitiativeDice); 
+	});
 	self.isActive = ko.observable(false);
 
 	var sumModifiers = function(prop) {
@@ -275,13 +278,15 @@ function Npc(name, body, agility, reaction, strength, willpower, logic, intuitio
 		for (var i in self.guns()) {
 			guns.push(self.guns()[i].clone());
 		}
-		return new Npc(name, body, agility, reaction, strength, willpower, logic, intuition, charisma, edge, magic, essence, armor, skills, guns);
+		return new Npc(name, body, agility, reaction, strength, willpower, logic, intuition, charisma, edge, magic, essence, armor, skills, guns, bonusInitiativeDice);
 	};
 
 	self.cloneMany = function(count) {
 		var npcs = [];
 		for (var i = 1; i <= count; i++) {
-			npcs.push(self.clone());
+			var npc = self.clone();
+			npc.name = npc.name.replace(/\{0\}/, i);
+			npcs.push(npc);
 		}
 		return npcs;
 	};
@@ -344,8 +349,14 @@ function Gun(name, accuracy, damage, damageType, armorPenetration, fireModes, re
 
 //function Gun(name, accuracy, damage, damageType, armorPenetration, fireModes, recoilCompensation, maxAmmo, linkedSkill) {
 var Guns = {
-	AresPredatorV: function () { return new Gun('Ares Predator V', 5, 8, 'P', -1, [FireMode.SA], 0, 15, Skill.Pistols); },
-	RugerSuperWarhawk: function () { return new Gun('Ruger Super Warhawk', 5, 9, 'P', -2, [FireMode.SS], 0, 6, Skill.Pistols); }
+	AresPredatorV: function () { return new Gun('Ares Predator V', 5, 8, 'P', -1, [FireMode.SA,FireMode.SB], 0, 15, Skill.Pistols); },
+	BrowningUltraPower: function () { return new Gun('Browning Ultra-Power', 6, 8, 'P', -1, [FireMode.SA,FireMode.SB], 0, 10, Skill.Pistols); },
+	RugerSuperWarhawk: function () { return new Gun('Ruger Super Warhawk', 5, 9, 'P', -2, [FireMode.SS], 0, 6, Skill.Pistols); },
+	ColtGovernment2066: function () { return new Gun('Colt Government 2066', 6, 7, 'P', -1, [FireMode.SA,FireMode.SB], 0, 14, Skill.Pistols); },
+	ColtCobraTZ120: function () { return new Gun('Colt Cobra TZ-120', 5, 7, 'P', 0, [FireMode.SA,FireMode.BF,FireMode.FA], 3, 32, Skill.Automatics); },
+	AK97: function () { return new Gun('AK-97', 5, 10, 'P', -2, [FireMode.SA,FireMode.BF,FireMode.FA], 0, 38, Skill.Automatics); },
+	Bow: function (rating) { return new Gun('Bow ' + rating, 6, rating + 2, 'P', -Math.ceil(rating / 4), [FireMode.SS], 0, 99, Skill.Automatics); },
+	DefianceT250: function () { return new Gun('Defiance T-250', 4, 10, 'P', -1, [FireMode.SS,FireMode.SA,FireMode.SB], 0, 5, Skill.LongArms); },
 };
 
 function AppViewModel() {
@@ -355,12 +366,69 @@ function AppViewModel() {
 //function Gun(name, accuracy, damage, damageType, armorPenetration, fireModes, recoilCompensation, maxAmmo, linkedSkill) {
 
 	var skillSet = {};
-	skillSet[Skill.Pistols] = 6;
-	var ganger = new Npc('Elf Ganger', 3, 5, 4, 2, 4, 2, 4, 5, 2, 0, 6, 9, skillSet, [Guns.AresPredatorV(), Guns.RugerSuperWarhawk()]);
-	var gangers = ganger.cloneMany(8);
-	console.log(gangers)
+	skillSet[Skill.Pistols] = 5;
+	skillSet[Skill.Automatics] = 5;
+	var shooters = new Npc('Shooters Ganger {0}', 4, 5, 5, 3, 3, 3, 3, 5, 3, 0, 5, 8, skillSet, 
+		[Guns.BrowningUltraPower(), Guns.ColtCobraTZ120()], 1).cloneMany(11);
 
-	self.npcs = ko.observableArray(gangers);
+	var skillSet = {};
+	skillSet[Skill.Pistols] = 6;
+	var shootersLeader = new Npc('"Enyo" Leader', 5, 9, 7, 3, 4, 4, 4, 8, 3, 0, 2.73, 8, skillSet, 
+		[Guns.BrowningUltraPower()], 1);
+
+	var skillSet = {};
+	skillSet[Skill.Pistols] = 5;
+	skillSet[Skill.Automatics] = 5;
+	var spans = new Npc('Span Ganger {0}a', 6, 5, 4, 6, 3, 2, 3, 3, 3, 0, 5, 9, skillSet, 
+		[Guns.ColtGovernment2066()], 1).cloneMany(4);
+	spans = spans.concat(new Npc('Span Ganger {0}b', 6, 5, 4, 6, 3, 2, 3, 3, 3, 0, 5, 9, skillSet, 
+		[Guns.AK97()]).cloneMany(4));
+
+	var skillSet = {};
+	skillSet[Skill.Pistols] = 6;
+	var spansLeader = new Npc('"The Duke" Leader', 7, 8, 6, 9, 4, 3, 3, 4, 3, 0, 0.8, 15, skillSet, 
+		[Guns.RugerSuperWarhawk()], 3);
+
+	var skillSet = {};
+	skillSet[Skill.Pistols] = 4;
+	skillSet[Skill.Automatics] = 6;
+	var dogSoldiers = new Npc('Dog Soldiers {0}', 4, 6, 4, 7, 3, 3, 3, 3, 3, 0, 5, 9, skillSet, 
+		[Guns.ColtGovernment2066(), Guns.Bow(7)], 1).cloneMany(11);
+
+	var dogSoldiersLeader = new Npc('"Red Feather" Leader', 5, 6, 8, 5, 4, 4, 4, 4, 3, 6, 6, 11, {}, [], 4);
+
+	var skillSet = {};
+	skillSet[Skill.Pistols] = 5;
+	skillSet[Skill.LongArms] = 5;
+	var gimliSons = new Npc('Gimli Sons {0}', 6, 5, 4, 7, 3, 3, 3, 3, 3, 0, 5, 9, skillSet, 
+		[Guns.ColtGovernment2066(), Guns.DefianceT250()], 1).cloneMany(9);
+
+	var skillSet = {};
+	skillSet[Skill.Pistols] = 6;
+	var gimliSonsLeader = new Npc('"Stump" Leader', 6, 5, 5, 7, 6, 4, 5, 4, 3, 6, 6, 9, skillSet, 
+		[Guns.ColtGovernment2066()], 2);
+
+	var npcs = [];
+	if (location.href.indexOf('shooters') != -1) npcs = shooters.concat([shootersLeader]);
+	else if (location.href.indexOf('spans') != -1) npcs = spans.concat([spansLeader]);
+	else if (location.href.indexOf('dogsoldiers') != -1) npcs = dogSoldiers.concat([dogSoldiersLeader]);
+	else if (location.href.indexOf('gimlisons') != -1) npcs = gimliSons.concat([gimliSonsLeader]);
+
+	var skillSet = {};
+	skillSet[Skill.Pistols] = 3;
+	var pcs = [
+		new Npc('Ben', 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, {}, [], 1),
+		new Npc('Ben HotSim', 0, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, {}, [], 4),
+		new Npc('Ben ColdSim', 0, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, {}, [], 3),
+		new Npc('Adam', 0, 0, 11, 0, 0, 0, 0, 0, 0, 0, 0, 0, {}, [], 3),
+		new Npc('Bill', 0, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, {}, [], 1),
+		new Npc('Jim', 0, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, {}, [], 1),
+		new Npc('Jim HotSim', 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, {}, [], 4),
+		new Npc('Jim ColdSim', 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, {}, [], 3),
+		new Npc('Aaron', 0, 0, 12, 0, 0, 0, 0, 0, 0, 0, 0, 0, {}, [], 1)
+	];
+
+	self.npcs = ko.observableArray(npcs.concat(pcs));
 
 	self.attackModifiers = Status.attackModifiers();
 	self.defenseModifiers = Status.defenseModifiers();
@@ -496,6 +564,7 @@ $(function() {
 	padding: 5px;
 	position: relative;
 	width: 700px;
+	height:300px;
 }
 .action-grp {
 	margin: 5px 0;

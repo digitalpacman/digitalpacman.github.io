@@ -1,0 +1,5 @@
+add laser sight to attack buffs
+
+move laser sight / smartlink buffs to gun options
+
+changing initiative
