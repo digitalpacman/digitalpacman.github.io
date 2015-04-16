@@ -2,4 +2,10 @@ add laser sight to attack buffs
 
 move laser sight / smartlink buffs to gun options
 
-changing initiative
+changing initiative. vr to ar etc
+
+make PCs look more like PCs, remove all the buttons
+
+add statline
+
+add optional stuntrack
