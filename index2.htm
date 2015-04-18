@@ -160,6 +160,17 @@ function Npc(name, body, agility, reaction, strength, willpower, logic, intuitio
 	self.isActive = ko.observable(false);
 	self.hasActed = ko.observable(false);
 	self.isPC = false;
+	self.edging = ko.observable(false);
+	self.edgePoints = ko.observable(self.edge());
+	self.edgeModifier = ko.computed(function() {
+		return self.edgePoints() > 0 && self.edging() ? self.edge() : 0;
+	});
+	self.useEdge = function() {
+		if (!self.edging() || self.edgePoints() == 0) return 0;
+		self.edgePoints(self.edgePoints() - 1);
+		if (self.edgePoints() == 0) self.edging(false);
+		return self.edge();
+	};
 
 	var sumModifiers = function(prop) {
 		var sum = 0;
@@ -205,7 +216,7 @@ function Npc(name, body, agility, reaction, strength, willpower, logic, intuitio
 	self.raiseDefense = function() { self.miscDefenseMod(self.miscDefenseMod() + 1); };
 	self.previouslyDefendedAttacks = ko.observable(0);
 	self.defense = ko.computed(function() { 
-		return self.reaction()+ self.intuition() + self.miscDefenseMod() + self.conditionModifier() - self.previouslyDefendedAttacks(); 
+		return self.reaction() + self.intuition() + self.edgeModifier() + self.miscDefenseMod() + self.conditionModifier() - self.previouslyDefendedAttacks(); 
 	});
 	self.startTurn = function() {
 		self.isActive(true);
@@ -394,6 +405,7 @@ function Gun(name, accuracy, damage, damageType, armorPenetration, fireModes, re
 				npc.skills[self.linkedSkill] + 
 				npc.conditionModifier() + 
 				npc.rangedAttackStatusModifier() +
+				npc.edgeModifier() +
 				self.miscModifier();
 		});
 
@@ -519,12 +531,16 @@ function AppViewModel() {
 	self.fireModes = FireMode.asArray();
 
 	var generalOutput = function(desc, diceResult) {
+		var msg = desc + '.';
 		if (diceResult.glitch) {
-			log(false, desc + '. Glitch.<br/>' + diceResult.dice + ' dice / ' + diceResult.hits + ' hits');
+			msg += 'Glitch.';
 		}
-		else {
-			log(desc + '<br/>' + diceResult.dice + ' dice / ' + diceResult.hits + ' hits');
+		msg += '<br/>';
+		if (diceResult.explodeDice > 0) {
+			msg += diceResult.explodeDice + ' exploded.<br/>';
 		}
+		msg += diceResult.dice + ' dice / ' + diceResult.hits + ' hits';
+		log(!diceResult.glitch,msg);
 	};
 
 	var sortByInitiative = function(a, b) {
@@ -593,25 +609,25 @@ function AppViewModel() {
 
 	self.rollGunDefense = function(npc, fireMode) {
 		var dicePool = npc.gunDefend(fireMode);
-		generalOutput('Defense', roll(dicePool));
+		generalOutput('Defense', roll(dicePool, npc.useEdge()));
 	};
 
 	self.rollMeleeDefense = function(npc) {
 		var dicePool = npc.meleeDefend();
-		generalOutput('Defense', roll(dicePool));
+		generalOutput('Defense', roll(dicePool, npc.useEdge()));
 	};
 
 	self.rollResistance = function(npc) {
-		generalOutput('Resistance', roll(npc.resistance()));
+		generalOutput('Resistance', roll(npc.resistance(), npc.useEdge()));
 	};
 
 	self.shoot = function(npc, gun, mode) {
-		var diceResults = roll(npc.shoot(gun, mode));
+		var diceResults = roll(npc.shoot(gun, mode), npc.useEdge());
 		generalOutput(gun.name + ' ' + mode.mode.name, diceResults);
 	};
 
 	self.rollMeleeWeapon = function(npc, meleeWeapon) {
-		generalOutput(meleeWeapon.name + ' Attack', roll(meleeWeapon.dicePool - npc.conditionModifier()));
+		generalOutput(meleeWeapon.name + ' Attack', roll(meleeWeapon.dicePool - npc.conditionModifier(), npc.useEdge()));
 		log(meleeWeapon.dmg + ' DV ' + meleeWeapon.ap + ' AP');		
 	};
 
@@ -635,20 +651,24 @@ function rollSum(dice) {
 	return sum;
 }
 
-function roll(dice) {
+function roll(dice, explode) {
 	var dice = dice < 0 ? 0 : dice;
 	var hits = 0;
 	var ones = 0;
-	for (var i = 0; i < dice; i++) {
+	var explodeDice = 0;
+	for (var i = 0; i < dice + explodeDice; i++) {
 		var result = Math.floor((Math.random() * 6) + 1);
-		if (result < 1 || result > 6) alert (result);
+		if (result < 1 || result > 6) alert ('Dice roll was out of range. ' + result);
 		if (result == 1) ones++;
 		if (result >= 5) hits++;
+		if (result == 6 && explode) explodeDice++;
 	}
-	if (ones > dice / 2) {
-		return { dice: dice, glitch: true, hits: hits };
+	var rollResult = { dice: dice, explodeDice: explodeDice, hits: hits };
+	if (ones > (dice + explodeDice) / 2) {
+		rollResult.glitch = true;
+		return rollResult;
 	}
-	return { dice: dice, hits: hits };
+	return rollResult;
 }
 
 // Activates knockout.js
@@ -769,6 +789,7 @@ button {
 			<button data-bind="text: physicalTrack.label(), event: {contextmenu: physicalTrack.healDamage}, click: physicalTrack.takeDamage"></button>
 			<button data-bind="visible: useStun, text: stunTrack.label(), event: {contextmenu: stunTrack.healDamage}, click: stunTrack.takeDamage"></button>
 			<label><input type="checkbox" data-bind="checked: useStun" />Stun</label>
+			<label data-bind="visible: edgePoints() > 0"><input type="checkbox" data-bind="checked: edging" />Edging(<span data-bind="text: edgePoints"></span>)</label>
 		</div>
 		<div data-bind="visible: !isPC">
 <!-- defense -->
