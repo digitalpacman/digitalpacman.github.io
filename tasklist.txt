@@ -1,11 +1,15 @@
-add laser sight to attack buffs
-
 move laser sight / smartlink buffs to gun options
 
-changing initiative. vr to ar etc
+add group and singular edge - include in rolls
 
-make PCs look more like PCs, remove all the buttons
+scrolling when you end turn
 
-add statline
 
-add optional stuntrack
+
+-add statline
+-previous attack penalty modifier now resets when turn starts
+-added optional stun track
+-removed unnecessary fields when its a PC
+-added a display for recoil penalty to gun mode attacks
+-added laser sight attack mod
+-added changing initiative mode

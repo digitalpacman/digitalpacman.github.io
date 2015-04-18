@@ -2,12 +2,14 @@
 <html>
 <head>
 <title>Title of the document</title>
+<script src="https://code.jquery.com/jquery-2.1.3.min.js"></script>
+<script src="scrollTo/jquery.scrollTo.min.js"></script>
 <script src="alertify/js/alertify.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/knockout/3.3.0/knockout-min.js"></script>
+
 <link href="alertify/css/core.css" rel="stylesheet" type="text/css"></link>
 <link href="alertify/css/themes/default/default.css" rel="stylesheet" type="text/css"></link>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/knockout/3.3.0/knockout-min.js"></script>
-<script src="https://code.jquery.com/jquery-2.1.3.min.js"></script>
 <script>
 var Skill = {
 	Pistols: "Pistols",
@@ -57,6 +59,7 @@ var Status = {
 	ImplantedSmartGun: new StatusEnum("ImplantedSmartGun", 2, 0),
 	InMelee: new StatusEnum("InMelee", -3, -3),
 	InMovingVehicle: new StatusEnum("InMovingVehicle", 0, 3),
+	LaserSight: new StatusEnum("LaserSight", 1, 0),
 	PartialCover: new StatusEnum("PartialCover", 0, 2),
 	Prone: new StatusEnum("Prone", -1, -2),
 	ReceivingCharge: new StatusEnum("ReceivingCharge", 0, 1),
@@ -88,43 +91,75 @@ var Status = {
 	},
 };
 
-function Initiative(modifier, bonusDice) {
+function Initiative(reaction, intuition, bonusDice, dataProcessing, conditionModifier) {
 	var self = this;
-	self.modifier = modifier;
-	self.bonusDice = bonusDice;
-	self.score = ko.observable(0);
-	self.label = ko.computed(function() { return self.score() + '(' + self.modifier + '+' + self.bonusDice + 'd6)' });
+	self.modes = { 'AR': 1 + bonusDice, 'ColdSim VR': 3, 'HotSim VR': 4 };
+	self.mode = ko.observable('AR');
+	self.arModifier = reaction + intuition;
+	self.vrModifier = dataProcessing + intuition;
+	self.modifier = ko.computed(function() { return self.mode() == 'AR' ? self.arModifier : self.vrModifier; });
+	self.otherModes = ko.computed(function() {
+		var otherModes = [];
+		for (var i in self.modes) {
+			if (i != self.mode())
+				otherModes.push(i);
+		}
+		return otherModes;
+	});
+	self.dice = ko.computed(function() {
+		return Math.min(self.modes[self.mode()], 5);
+	});
+	self.rolledScore = ko.observable(0);
+	self.score = ko.computed(function() { return self.rolledScore() + conditionModifier(); });
+	self.label = ko.computed(function() { return self.score() + '(' + self.modifier() + '+' + self.dice() + 'd6)' });
 	self.roll = function() {
-		self.score(self.modifier + rollSum(self.bonusDice));
+		self.rolledScore(self.modifier() + rollSum(self.dice()));
 	};
-	self.drop = function(score) {
-		self.score(self.score() - score);
+	self.changeScore = function(score) {
+		self.rolledScore(self.rolledScore() + score);
+	};
+	self.changeMode = function(mode) {
+		var diceDiff = self.modes[mode] - self.modes[self.mode()];
+		if (diceDiff != 0) {
+			var dice = Math.min(Math.abs(diceDiff), 5);
+
+			var scoreChange = rollSum(dice);
+			if (diceDiff < 0)
+				scoreChange = -scoreChange;
+			self.changeScore(scoreChange);
+		}
+		self.mode(mode);
 	};
 }
 
-function Npc(name, body, agility, reaction, strength, willpower, logic, intuition, charisma, edge, magic, essence, armor, skills, guns, bonusInitiativeDice) {
+function AddPc(name, reaction, intuition, bonusInitiativeDice, dataProcessing, firewall) {
+	return new Npc(name, 0, 0, reaction, 0, 0, 0, intuition, 0, 0, 0, 0, 0, {}, [], bonusInitiativeDice, dataProcessing, firewall);
+}
+
+function Npc(name, body, agility, reaction, strength, willpower, logic, intuition, charisma, edge, magic, essence, armor, skills, guns, bonusInitiativeDice, dataProcessing, firewall) {
 	var self = this;
 	self.name = name;
-	self.body = body;
-	self.agility = agility;
-	self.reaction = reaction;
+	self.body = ko.observable(body);
+	self.agility = ko.observable(agility);
+	self.reaction = ko.observable(reaction);
 	self.strength = ko.observable(strength);
-	self.willpower = willpower;
-	self.logic = logic;
-	self.intuition = intuition;
-	self.charisma = charisma;
-	self.edge = edge;
-	self.magic = magic;
-	self.essence = essence;
+	self.willpower = ko.observable(willpower);
+	self.logic = ko.observable(logic);
+	self.intuition = ko.observable(intuition);
+	self.charisma = ko.observable(charisma);
+	self.edge = ko.observable(edge);
+	self.magic = ko.observable(magic);
+	self.essence = ko.observable(essence);
+	self.dataProcessing = ko.observable(dataProcessing);
+	self.firewall = ko.observable(firewall);
 	self.armor = armor;
 	self.recoilCompensation = ko.computed(function() { return Math.ceil(self.strength() / 3) + 1; });
 	self.meleeWeapons = ko.observableArray([]);
 	self.skills = skills;
 	self.statuses = ko.observableArray([]);
-	self.initiative = ko.computed(function() { 
-		return new Initiative(self.reaction + self.intuition, bonusInitiativeDice); 
-	});
 	self.isActive = ko.observable(false);
+	self.hasActed = ko.observable(false);
+	self.isPC = false;
 
 	var sumModifiers = function(prop) {
 		var sum = 0;
@@ -138,18 +173,48 @@ function Npc(name, body, agility, reaction, strength, willpower, logic, intuitio
 		return sum;
 	};
 
-	self.damageBoxes = ko.observable(0);
-	self.conditionMonitor = ko.computed(function() { return Math.ceil(self.body / 2) + 8; });
-	self.undamagedBoxes = ko.computed(function() { return self.conditionMonitor() - self.damageBoxes(); });
-	self.conditionModifier = ko.computed(function() { return -Math.floor(self.damageBoxes() / 3); });
-	self.lowerCondition = function() { if (self.damageBoxes() < self.conditionMonitor()) self.damageBoxes(self.damageBoxes() + 1); };
-	self.raiseCondition = function() { if (self.damageBoxes() > 0) self.damageBoxes(self.damageBoxes() - 1); };
+	var ConditionTrack = function(attribute) {
+		var self2 = this;
+		self2.damage = ko.observable(0);
+		self2.monitor = ko.computed(function() { return Math.ceil(attribute / 2) + 8; });
+		self2.current = ko.computed(function() { return self2.monitor() - self2.damage(); });
+		self2.takeDamage = function() { if (self2.damage() < self2.monitor()) self2.damage(self2.damage() + 1); };
+		self2.healDamage = function() { if (self2.damage() > 0) self2.damage(self2.damage() - 1); };
+		self2.label = ko.computed(function() {
+			return 'Condition Monitor ' + self2.current() + '(' + self2.monitor() + ')';
+		});
+	};
+
+	self.physicalTrack = new ConditionTrack(self.body());
+	self.useStun = ko.observable(false);
+	self.stunTrack = new ConditionTrack(self.willpower());
+
+	self.conditionModifier = ko.computed(function() {
+		var fromDamage = Math.floor(self.physicalTrack.damage() / 3);
+		var fromStun = Math.floor(self.stunTrack.damage() / 3);
+		if (!self.useStun()) fromStun = 0;
+		return -(fromDamage + fromStun);
+	});
+
+	self.initiative = ko.computed(function() {
+		return new Initiative(self.reaction(), self.intuition(), bonusInitiativeDice, self.dataProcessing(), self.conditionModifier);
+	});
 
 	self.miscDefenseMod = ko.observable(0);
 	self.lowerDefense = function() { self.miscDefenseMod(self.miscDefenseMod() - 1); };
 	self.raiseDefense = function() { self.miscDefenseMod(self.miscDefenseMod() + 1); };
 	self.previouslyDefendedAttacks = ko.observable(0);
-	self.defense = ko.computed(function() { return self.reaction + self.intuition + self.miscDefenseMod() + self.conditionModifier() - self.previouslyDefendedAttacks(); });
+	self.defense = ko.computed(function() { 
+		return self.reaction()+ self.intuition() + self.miscDefenseMod() + self.conditionModifier() - self.previouslyDefendedAttacks(); 
+	});
+	self.startTurn = function() {
+		self.isActive(true);
+		self.previouslyDefendedAttacks(0);
+	};
+	self.endTurn = function() {
+		self.isActive(false);
+		self.hasActed(true);
+	};
 	self.gunDefense = ko.computed(function() {
 		return self.defense() + 
 			sumModifiers("defenseMod",
@@ -186,7 +251,7 @@ function Npc(name, body, agility, reaction, strength, willpower, logic, intuitio
 	}
 
 	self.resistanceMiscModifier = ko.observable(0);
-	self.resistance = ko.computed(function() { return self.armor + self.body + self.resistanceMiscModifier(); });
+	self.resistance = ko.computed(function() { return self.armor + self.body() + self.resistanceMiscModifier(); });
 	self.lowerResistance = function() { self.resistanceMiscModifier(self.resistanceMiscModifier() - 1); };
 	self.raiseResistance = function() { self.resistanceMiscModifier(self.resistanceMiscModifier() + 1); };
 
@@ -210,7 +275,8 @@ function Npc(name, body, agility, reaction, strength, willpower, logic, intuitio
 			Status.Running,
 			Status.CalledShot,
 			Status.SmartGun,
-			Status.ImplantedSmartGun);
+			Status.ImplantedSmartGun,
+			Status.LaserSight);
 	});
 
 	self.meleeAttackModifiers = ko.computed(function() {
@@ -244,7 +310,7 @@ function Npc(name, body, agility, reaction, strength, willpower, logic, intuitio
 	};
 
 	self.melee = function(weapon) {
-		var dicePool = self.agility + 
+		var dicePool = self.agility() + 
 			self.skills[weapon.linkedSkill] + 
 			self.conditionModifier() + 
 			self.meleeAttackModifiers();
@@ -282,7 +348,8 @@ function Npc(name, body, agility, reaction, strength, willpower, logic, intuitio
 		for (var i in self.guns()) {
 			guns.push(self.guns()[i].clone());
 		}
-		return new Npc(name, body, agility, reaction, strength, willpower, logic, intuition, charisma, edge, magic, essence, armor, skills, guns, bonusInitiativeDice);
+		return new Npc(name, body, agility, reaction, strength, willpower, logic, intuition, charisma, edge, magic, essence, armor, skills, guns, 
+			bonusInitiativeDice, dataProcessing, firewall);
 	};
 
 	self.cloneMany = function(count) {
@@ -323,7 +390,7 @@ function Gun(name, accuracy, damage, damageType, armorPenetration, fireModes, re
 
 	self.setNpc = function(npc) {
 		self.modifier = ko.computed(function() {
-			return npc.agility + 
+			return npc.agility() + 
 				npc.skills[self.linkedSkill] + 
 				npc.conditionModifier() + 
 				npc.rangedAttackStatusModifier() +
@@ -342,6 +409,9 @@ function Gun(name, accuracy, damage, damageType, armorPenetration, fireModes, re
 				var progressiveRecoil = recoilCompensation - self2.mode.bulletsUsed;
 				if (progressiveRecoil >= 0) return self.modifier();
 				return self.modifier() + progressiveRecoil;
+			});
+			self2.label = ko.computed(function() {
+				return mode.name + ' ' + self2.modifier() + '(-' + mode.bulletsUsed + ')'
 			});
 		};
 		self.fireModes = ko.observableArray([]);
@@ -385,44 +455,44 @@ function AppViewModel() {
 	skillSet[Skill.Pistols] = 5;
 	skillSet[Skill.Automatics] = 5;
 	var shooters = new Npc('Shooters Ganger {0}', 4, 5, 5, 3, 3, 3, 3, 5, 3, 0, 5, 8, skillSet, 
-		[Guns.BrowningUltraPower(), Guns.ColtCobraTZ120()], 1).cloneMany(11);
+		[Guns.BrowningUltraPower(), Guns.ColtCobraTZ120()], 0, 2, 2).cloneMany(11);
 
 	var skillSet = {};
 	skillSet[Skill.Pistols] = 6;
 	var shootersLeader = new Npc('"Enyo" Leader', 5, 9, 7, 3, 4, 4, 4, 8, 3, 0, 2.73, 8, skillSet, 
-		[Guns.BrowningUltraPower()], 1);
+		[Guns.BrowningUltraPower()], 0, 3, 3);
 
 	var skillSet = {};
 	skillSet[Skill.Pistols] = 5;
 	skillSet[Skill.Automatics] = 5;
 	var spans = new Npc('Span Ganger {0}a', 6, 5, 4, 6, 3, 2, 3, 3, 3, 0, 5, 9, skillSet, 
-		[Guns.ColtGovernment2066()], 1).cloneMany(4);
+		[Guns.ColtGovernment2066()], 0, 2, 2).cloneMany(4);
 	spans = spans.concat(new Npc('Span Ganger {0}b', 6, 5, 4, 6, 3, 2, 3, 3, 3, 0, 5, 9, skillSet, 
-		[Guns.AK97()]).cloneMany(4));
+		[Guns.AK97()], 0, 2, 2).cloneMany(4));
 
 	var skillSet = {};
 	skillSet[Skill.Pistols] = 6;
 	var spansLeader = new Npc('"The Duke" Leader', 7, 8, 6, 9, 4, 3, 3, 4, 3, 0, 0.8, 15, skillSet, 
-		[Guns.RugerSuperWarhawk()], 3);
+		[Guns.RugerSuperWarhawk()], 2, 5, 5);
 
 	var skillSet = {};
 	skillSet[Skill.Pistols] = 4;
 	skillSet[Skill.Automatics] = 6;
 	var dogSoldiers = new Npc('Dog Soldiers {0}', 4, 6, 4, 7, 3, 3, 3, 3, 3, 0, 5, 9, skillSet, 
-		[Guns.ColtGovernment2066(), Guns.Bow(7)], 1).cloneMany(11);
+		[Guns.ColtGovernment2066(), Guns.Bow(7)], 0, 2, 2).cloneMany(11);
 
-	var dogSoldiersLeader = new Npc('"Red Feather" Leader', 5, 6, 8, 5, 4, 4, 4, 4, 3, 6, 6, 11, {}, [], 4);
+	var dogSoldiersLeader = new Npc('"Red Feather" Leader', 5, 6, 8, 5, 4, 4, 4, 4, 3, 6, 6, 11, {}, [], 4, 3, 3);
 
 	var skillSet = {};
 	skillSet[Skill.Pistols] = 5;
 	skillSet[Skill.LongArms] = 5;
 	var gimliSons = new Npc('Gimli Sons {0}', 6, 5, 4, 7, 3, 3, 3, 3, 3, 0, 5, 9, skillSet, 
-		[Guns.ColtGovernment2066(), Guns.DefianceT250()], 1).cloneMany(9);
+		[Guns.ColtGovernment2066(), Guns.DefianceT250()], 0, 2, 2).cloneMany(9);
 
 	var skillSet = {};
 	skillSet[Skill.Pistols] = 6;
 	var gimliSonsLeader = new Npc('"Stump" Leader', 6, 5, 5, 7, 6, 4, 5, 4, 3, 6, 6, 9, skillSet, 
-		[Guns.ColtGovernment2066()], 2);
+		[Guns.ColtGovernment2066()], 1, 4, 4);
 
 	var npcs = [];
 	if (location.href.indexOf('shooters') != -1) npcs = shooters.concat([shootersLeader]);
@@ -433,23 +503,20 @@ function AppViewModel() {
 	var skillSet = {};
 	skillSet[Skill.Pistols] = 3;
 	var pcs = [
-		new Npc('Ben', 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, {}, [], 1),
-		new Npc('Ben HotSim', 0, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, {}, [], 4),
-		new Npc('Ben ColdSim', 0, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, {}, [], 3),
-		new Npc('Adam', 0, 0, 11, 0, 0, 0, 0, 0, 0, 0, 0, 0, {}, [], 3),
-		new Npc('Bill', 0, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, {}, [], 1),
-		new Npc('Jim', 0, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, {}, [], 1),
-		new Npc('Jim HotSim', 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, {}, [], 4),
-		new Npc('Jim ColdSim', 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, {}, [], 3),
-		new Npc('Aaron', 0, 0, 12, 0, 0, 0, 0, 0, 0, 0, 0, 0, {}, [], 1)
+		AddPc('Ben', 3, 6, 0, 5, 6),
+		AddPc('Adam', 7, 4, 2, 3, 3),
+		AddPc('Bill', 4, 3, 0, 3, 3),
+		AddPc('Jim', 3, 4, 0, 6, 6),
+		AddPc('Aaron', 7, 5, 0, 3, 3)
 	];
+	for (var i in pcs) { pcs[i].isPC = true; }
 
 	self.npcs = ko.observableArray(npcs.concat(pcs));
+	// self.npcs = ko.observableArray(pcs);
 
 	self.attackModifiers = Status.attackModifiers();
 	self.defenseModifiers = Status.defenseModifiers();
 	self.fireModes = FireMode.asArray();
-	self.actingCharacter = 0;
 
 	var generalOutput = function(desc, diceResult) {
 		if (diceResult.glitch) {
@@ -460,49 +527,67 @@ function AppViewModel() {
 		}
 	};
 
+	var sortByInitiative = function(a, b) {
+		if (a.initiative().score() > b.initiative().score()) return -1;
+		if (a.initiative().score() < b.initiative().score()) return 1;
+		return 0;
+	};
+
 	self.startCombatTurn = function() {
 		log("Starting new combat turn");
-		self.npcs()[self.actingCharacter].isActive(false);
 		for (var i in self.npcs()) {
 			self.npcs()[i].initiative().roll();
+			self.npcs()[i].hasActed(false);
+			self.npcs()[i].isActive(false);
 		}
-		self.npcs.sort(function(a, b) {
-			if (a.initiative().score() > b.initiative().score()) return -1;
-			if (a.initiative().score() < b.initiative().score()) return 1;
-			return 0;
-		});
-		self.actingCharacter = 0;
-		self.npcs()[self.actingCharacter].isActive(true);
+		self.npcs.sort(sortByInitiative);
+		self.npcs()[0].startTurn();
+		$.scrollTo('.character:eq(0)', 300);
 	};
 	self.startCombatTurn();
 
-	var endInitiativePass = function() {
+	self.startNextInitiativePass = function() {
+		log("Starting new initiative pass");
 		for (var i in self.npcs()) {
-			var npcInitiative = self.npcs()[i].initiative();
-			npcInitiative.score(npcInitiative.score() - 10);
+			self.npcs()[i].initiative().changeScore(-10);
+			if (self.npcs()[i].initiative().score() > 0) {
+				self.npcs()[i].hasActed(false);
+			}
 		}
+		self.npcs()[0].startTurn();
+		$.scrollTo('.character:eq(0)', 300);
 	};
 
 	self.endTurn = function() {
-		self.npcs()[self.actingCharacter].isActive(false);
-		var next = -1;
-		var i = self.actingCharacter + 1;
-		for (var limiter = self.npcs().length; limiter > 0; limiter--, i++) {
-			if (i >= self.npcs().length) {
-				endInitiativePass();
-				i = 0;
+		for (var i = 0; i < self.npcs().length; i++) {
+			if (self.npcs()[i].isActive()) {
+				self.npcs()[i].endTurn();
 			}
-			if (self.npcs()[i].initiative().score() > 0) {
-				next = i;
+		}
+		self.npcs.sort(sortByInitiative);
+
+		var anyCanActThisPass = false;
+		var anyCanActNextPass = false;
+		for (var i = 0; i < self.npcs().length; i++) {
+			var npc = self.npcs()[i];
+			if (!npc.hasActed() && npc.initiative().score() > 0) {
+				anyCanActThisPass = true;
+				npc.startTurn();
+				$.scrollTo('.character:eq(' + i +')', 300);
 				break;
 			}
+			if (npc.initiative().score() > 10) {
+				anyCanActNextPass = true;
+			}
 		}
-		if (next == -1) {
-			self.startCombatTurn();
-		}
-		else {
-			self.actingCharacter = next;
-			self.npcs()[self.actingCharacter].isActive(true);
+
+		if (!anyCanActThisPass) {
+			if (anyCanActNextPass) {
+				self.startNextInitiativePass();
+			}
+			else {
+				self.startCombatTurn();
+			}
 		}
 	}
 
@@ -568,31 +653,38 @@ function roll(dice) {
 
 // Activates knockout.js
 $(function() {
-	ko.applyBindings(new AppViewModel());
+	window.m = new AppViewModel();
+	ko.applyBindings(window.m);
 });
 </script>
 <style type="text/css">
-.npc {
+.character {
 	float: left;
 	border: 1px solid black;
 	margin: 5px;
 	padding: 5px;
 	position: relative;
 	width: 700px;
-	height:300px;
+
+}
+.npc {
+}
+.pc {
+
 }
 .action-grp {
 	margin: 5px 0;
 	clear: both;
 }
-.npc .name {
+.character .name {
 	margin: 0 0 10px 0;
+	font-size: 18px;
 }
 .modifier {
-	padding:2px 5px;
-	border:0;
+	padding: 3px 5px;
+	border: 0;
 	background-color: lightgray;
-	width: 22%;
+	width: 24%;
 	margin-right: 1%;
 	display: block;
 	float: left;
@@ -615,6 +707,29 @@ button.fixed-wide {
 .active {
 	background-color: #F0FFF0;
 }
+.statline {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	clear: both;
+}
+.statline li {
+	float: left;
+	width: 30px;
+	text-align:center;
+}
+.statline.title li {
+	background-color: #ccc;
+	border-bottom: 2px solid #000;
+}
+body {
+	font-family: verdana;
+	font-size: 16px;
+}
+button {
+	font-family: verdana;
+	font-size: 11px;
+}
 </style>
 </head>
 
@@ -623,61 +738,85 @@ button.fixed-wide {
 	<button data-bind="click: startCombatTurn">New Combat Turn</button>
 </div>
 <div data-bind="foreach: npcs">
-	<div class="npc" data-bind="css: { active: isActive }">
+	<div class="character" data-bind="css: { active: isActive, npc: !isPC, pc: isPC }">
 		<h1 class="name"><span data-bind="text: name"></span>, <span data-bind="text: initiative().label()"></span></h1>
+		<ul class="statline title" data-bind="visible: !isPC">
+			<li>B</li><li>A</li><li>R</li><li>S</li><li>W</li><li>L</li><li>I</li><li>C</li><li>Ess</li><li>E</li><li>M</li>
+		</ul>
+		<ul class="statline" data-bind="visible: !isPC">
+			<li data-bind="text: body"></li>
+			<li data-bind="text: agility"></li>
+			<li data-bind="text: reaction"></li>
+			<li data-bind="text: strength"></li>
+			<li data-bind="text: willpower"></li>
+			<li data-bind="text: logic"></li>
+			<li data-bind="text: intuition"></li>
+			<li data-bind="text: charisma"></li>
+			<li data-bind="text: essence"></li>
+			<li data-bind="text: edge"></li>
+			<li data-bind="text: magic"></li>
+		</ul>
 		<div class="end-turn">
-			<button data-bind="click: function() { initiative().drop(5); }">-5</button>
-			<button data-bind="click: function() { initiative().drop(10); }">-10</button>
+			<span data-bind="foreach: initiative().otherModes">
+				<button data-bind="text: $data, click: $parent.initiative().changeMode"></button>
+			</span>
+			<button data-bind="click: function() { initiative().changeScore(-5); }">-5</button>
+			<button data-bind="click: function() { initiative().changeScore(-10); }">-10</button>
 			<button data-bind="click: $root.endTurn">End Turn</button>
 		</div>
+<!-- condition -->
 		<div class="action-grp">
-			<button data-bind="text: 'Condition Monitor ' + undamagedBoxes(), event: {contextmenu: raiseCondition}, click: lowerCondition"></button>
+			<button data-bind="text: physicalTrack.label(), event: {contextmenu: physicalTrack.healDamage}, click: physicalTrack.takeDamage"></button>
+			<button data-bind="visible: useStun, text: stunTrack.label(), event: {contextmenu: stunTrack.healDamage}, click: stunTrack.takeDamage"></button>
+			<label><input type="checkbox" data-bind="checked: useStun" />Stun</label>
 		</div>
+		<div data-bind="visible: !isPC">
 <!-- defense -->
-		<div class="action-grp">
-			<button data-bind="text: 'Defense ' + defense() + '(' + miscDefenseMod() + ')', event: {contextmenu: lowerDefense}, click: raiseDefense"></button>
-			<span data-bind="foreach: defenseFireModes" class="action-grp">
-				<button class="fixed-wide" data-bind="text: label, click: function() { $root.rollGunDefense($parent, $data); }"></button>
-			</span>
-			<button data-bind="text: 'Melee ' + meleeDefense(), click: $root.rollMeleeDefense"></button>
-		</div>
-<!-- defense mods -->
-		<div data-bind="foreach: $root.defenseModifiers" class="action-grp">
-			<button data-bind="text: $data.key + ' ' + $data.defenseMod, css: { on: false }, click: function(data, evt) { return $root.toggleDefenseModifier($parent, data, evt); }" class="modifier"></button>
-		</div>
-		<br />
-<!-- resistance -->
-		<div class="action-grp">
-			<button data-bind="text: 'Physical Resistance ' + resistance() + '(' + resistanceMiscModifier() + ')', 
-				event: {contextmenu: lowerResistance}, click: raiseResistance"></button>
-			<button data-bind="text: 'Resist Physical', click: $root.rollResistance"></button>
-<!--
-			<button data-bind="text: 'Resist Magical ' + resistance() + '(' + resistanceMiscModifier() + ')', 
-				event: {contextmenu: lowerResistance}, click: raiseResistance"></button>
-			<button data-bind="text: 'Resist Magical'"></button>
--->
-		</div>
-<!-- guns -->
-		<div class="action-grp" data-bind="foreach: guns">
 			<div class="action-grp">
-				<button data-bind="text: name + ' ' + modifier() + '(' + miscModifier() + ')', click: raiseMiscModifier, event: { contextmenu: lowerMiscModifier }"></button>
-				<span data-bind="foreach: fireModes">
-					<button class="fixed-wide" data-bind="text: mode.name + ' ' + modifier(), click: function() { $root.shoot($parents[1], $parent, $data); }"></button> 
+				<button data-bind="text: 'Defense ' + defense() + '(' + miscDefenseMod() + ')', event: {contextmenu: lowerDefense}, click: raiseDefense"></button>
+				<span data-bind="foreach: defenseFireModes" class="action-grp">
+					<button class="fixed-wide" data-bind="text: label, click: function() { $root.rollGunDefense($parent, $data); }"></button>
 				</span>
-				<button data-bind="text: recoilLabel, click: $parent.resetRecoil"></button>
-				<button data-bind="text: ammo() + ' ammo', click: reload"></button>
+				<button data-bind="text: 'Melee ' + meleeDefense(), click: $root.rollMeleeDefense"></button>
 			</div>
-		</div>
-<!-- melee -->
-		<div data-bind="foreach: meleeWeapons">
+<!-- defense mods -->
+			<div data-bind="foreach: $root.defenseModifiers" class="action-grp">
+				<button data-bind="text: $data.key + ' ' + $data.defenseMod, css: { on: false }, click: function(data, evt) { return $root.toggleDefenseModifier($parent, data, evt); }" class="modifier"></button>
+			</div>
+			<br />
+<!-- resistance -->
 			<div class="action-grp">
-				<span data-bind="text: name"></span> 
-				<button data-bind="click: function(meleeWeapon) { $root.rollMeleeWeapon($parent, meleeWeapon); }">Attack</button> 
+				<button data-bind="text: 'Physical Resistance ' + resistance() + '(' + resistanceMiscModifier() + ')', 
+					event: {contextmenu: lowerResistance}, click: raiseResistance"></button>
+				<button data-bind="text: 'Resist Physical', click: $root.rollResistance"></button>
+<!--
+				<button data-bind="text: 'Resist Magical ' + resistance() + '(' + resistanceMiscModifier() + ')', 
+					event: {contextmenu: lowerResistance}, click: raiseResistance"></button>
+				<button data-bind="text: 'Resist Magical'"></button>
+-->
 			</div>
-		</div>
+<!-- guns -->
+			<div class="action-grp" data-bind="foreach: guns">
+				<div class="action-grp">
+					<button data-bind="text: name + ' ' + modifier() + '(' + miscModifier() + ')', click: raiseMiscModifier, event: { contextmenu: lowerMiscModifier }"></button>
+					<span data-bind="foreach: fireModes">
+						<button class="fixed-wide" data-bind="text: label, click: function() { $root.shoot($parents[1], $parent, $data); }"></button> 
+					</span>
+					<button data-bind="text: recoilLabel, click: $parent.resetRecoil"></button>
+					<button data-bind="text: ammo() + ' ammo', click: reload"></button>
+				</div>
+			</div>
+<!-- melee -->
+			<div data-bind="foreach: meleeWeapons">
+				<div class="action-grp">
+					<span data-bind="text: name"></span> 
+					<button data-bind="click: function(meleeWeapon) { $root.rollMeleeWeapon($parent, meleeWeapon); }">Attack</button> 
+				</div>
+			</div>
 <!-- attack mods -->
-		<div data-bind="foreach: $root.attackModifiers" class="action-grp">
-			<button data-bind="text: $data.key + ' ' + $data.attackMod, css: { on: false }, click: function(data, evt) { return $root.toggleDefenseModifier($parent, data, evt); }" class="modifier"></button> 
+			<div data-bind="foreach: $root.attackModifiers" class="action-grp">
+				<button data-bind="text: $data.key + ' ' + $data.attackMod, css: { on: false }, click: function(data, evt) { return $root.toggleDefenseModifier($parent, data, evt); }" class="modifier"></button> 
+			</div>
 		</div>
 	</div>
 </div>
