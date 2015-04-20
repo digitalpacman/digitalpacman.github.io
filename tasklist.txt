@@ -1,8 +1,6 @@
-move laser sight / smartlink buffs to gun options
+move laser sight / smartlink buffs to gun options. add all gun addons
+add group edge
 
-add group and singular edge - include in rolls
-
-scrolling when you end turn
 
 
 
@@ -13,3 +11,8 @@ scrolling when you end turn
 -added a display for recoil penalty to gun mode attacks
 -added laser sight attack mod
 -added changing initiative mode
+-scrolling when you end turn
+-added individual edge and edge pools
+-added matrix defenses
+-added raise/lower for DP and FW
+-added melee weapons
