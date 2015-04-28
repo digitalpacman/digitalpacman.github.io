@@ -24,6 +24,7 @@ var Skill = {
 	Automatics: "Automatics",
 	LongArms: "LongArms",
 	Blades: "Blades",
+	Natural: "Natural",
 };
 
 var FireModeEnum = function(name, bulletsUsed, defenseMod, causesProgressiveRecoil) {
@@ -431,6 +432,16 @@ function MeleeWeapon(name, accuracy, reach, damage, damageType, armorPenetration
 
 	self.setNpc = function(npc) {
 		self.modifier = ko.computed(function() {
+
+			// console.log("-----");
+			// console.log(self.name)
+			// console.log(npc.agility());
+			// console.log(npc.skills[self.linkedSkill]);
+			// console.log(npc.conditionModifier());
+			// console.log(npc.meleeAttackModifiers());
+			// console.log(npc.edgeModifier());
+			// console.log(self.miscModifier());
+
 			return npc.agility() + 
 				npc.skills[self.linkedSkill] + 
 				npc.conditionModifier() + 
@@ -442,7 +453,7 @@ function MeleeWeapon(name, accuracy, reach, damage, damageType, armorPenetration
 	};
 
 	self.clone = function() {
-		return new MeleeWeapon(name, accuracy, reach, damage, damageType, armorPenetration);
+		return new MeleeWeapon(name, accuracy, reach, damage, damageType, armorPenetration, linkedSkill);
 	};
 }
 
@@ -519,6 +530,10 @@ var MeleeWeapons = {
 	CombatKnife: function() { return new MeleeWeapon('Combat Knife', 6, 0, 2, 'P', -3, Skill.Blades) },
 	Sword: function() { return new MeleeWeapon('Sword', 6, 1, 3, 'P', -2, Skill.Blades) },
 	ThrowingKnife: function() { return new MeleeWeapon('Throwing Knife', 6, 0, 1, 'P', -1, Skill.Blades) },
+	Claws: function() { return new MeleeWeapon('Claws', 8, 0, 3, 'P', -1, Skill.Natural) },
+	Horns: function() { return new MeleeWeapon('Horns', 8, 1, 5, 'P', 0, Skill.Natural) },
+	Bite: function(damage) { return new MeleeWeapon('Horns', 8, 1, damage, 'P', 0, Skill.Natural) },
+	Natural: function(damage) { return new MeleeWeapon('Natural', 8, 0, damage, 'P', 0, Skill.Natural) },
 };
 
 function log(success, msg) {
@@ -537,60 +552,50 @@ function log(success, msg) {
 function AppViewModel() {
 	var self = this;
 
-//function Npc(name, body, agility, reaction, strength, willpower, logic, intuition, charisma, edge, magic, essence, armor, skills, guns) {
-//function Gun(name, accuracy, damage, damageType, armorPenetration, fireModes, recoilCompensation, maxAmmo, linkedSkill) {
-
-	var skillSet = {};
-	skillSet[Skill.Pistols] = 5;
-	skillSet[Skill.Automatics] = 5;
-	var shooters = new Npc('Shooters Ganger {0}', 4, 5, 5, 3, 3, 3, 3, 5, 3, 0, 5, 8, skillSet, 
-		[Guns.BrowningUltraPower(), Guns.ColtCobraTZ120()], 0, 2, 2).cloneMany(11);
-
-	var skillSet = {};
-	skillSet[Skill.Pistols] = 6;
-	var shootersLeader = new Npc('"Enyo" Leader', 5, 9, 7, 3, 4, 4, 4, 8, 3, 0, 2.73, 8, skillSet, 
-		[Guns.BrowningUltraPower()], 0, 3, 3);
-
-	var skillSet = {};
-	skillSet[Skill.Pistols] = 5;
-	skillSet[Skill.Automatics] = 5;
-	var spans = new Npc('Span Ganger {0}a', 6, 5, 4, 6, 3, 2, 3, 3, 3, 0, 5, 9, skillSet, 
-		[Guns.ColtGovernment2066()], 0, 2, 2).cloneMany(4);
-	spans = spans.concat(new Npc('Span Ganger {0}b', 6, 5, 4, 6, 3, 2, 3, 3, 3, 0, 5, 9, skillSet, 
-		[Guns.AK97()], 0, 2, 2).cloneMany(4));
-
-	var skillSet = {};
-	skillSet[Skill.Pistols] = 6;
-	var spansLeader = new Npc('"The Duke" Leader', 7, 8, 6, 9, 4, 3, 3, 4, 3, 0, 0.8, 15, skillSet, 
-		[Guns.RugerSuperWarhawk()], 2, 5, 5);
-
-	var skillSet = {};
-	skillSet[Skill.Pistols] = 4;
-	skillSet[Skill.Automatics] = 6;
-	var dogSoldiers = new Npc('Dog Soldiers {0}', 4, 6, 4, 7, 3, 3, 3, 3, 3, 0, 5, 9, skillSet, 
-		[Guns.ColtGovernment2066(), Guns.Bow(7)], 0, 2, 2).cloneMany(11);
-
-	var skillSet = {};
-	skillSet[Skill.Blades] = 6;
-	var dogSoldiersLeader = new Npc('"Red Feather" Leader', 5, 6, 8, 5, 4, 4, 4, 4, 3, 6, 6, 11, skillSet, [], 4, 3, 3, 
-		[MeleeWeapons.CombatKnife(), MeleeWeapons.ThrowingKnife()]);
-
-	var skillSet = {};
-	skillSet[Skill.Pistols] = 5;
-	skillSet[Skill.LongArms] = 5;
-	var gimliSons = new Npc('Gimli Sons {0}', 6, 5, 4, 7, 3, 3, 3, 3, 3, 0, 5, 9, skillSet, 
-		[Guns.ColtGovernment2066(), Guns.DefianceT250()], 0, 2, 2).cloneMany(9);
-
-	var skillSet = {};
-	skillSet[Skill.Pistols] = 6;
-	var gimliSonsLeader = new Npc('"Stump" Leader', 6, 5, 5, 7, 6, 4, 5, 4, 3, 6, 6, 9, skillSet, 
-		[Guns.ColtGovernment2066()], 1, 4, 4);
+//function Npc(name, body, agility, reaction, strength, willpower, logic, intuition, charisma, edge, magic, essence, armor, skills, guns, bonusInitiativeDice, dataProcessing, firewall, meleeWeapons) {
 
 	var npcs = [];
-	if (location.href.indexOf('shooters') != -1) npcs = shooters.concat([shootersLeader]);
-	else if (location.href.indexOf('spans') != -1) npcs = spans.concat([spansLeader]);
-	else if (location.href.indexOf('dogsoldiers') != -1) npcs = dogSoldiers.concat([dogSoldiersLeader]);
-	else if (location.href.indexOf('gimlisons') != -1) npcs = gimliSons.concat([gimliSonsLeader]);
+	if (location.href.indexOf('griffins') != -1) {
+		var skillSet = {};
+		skillSet[Skill.Natural] = 7;
+		npcs = new Npc('Griffin {0}', 8, 6, 4, 8, 4, 3, 5, 1, 1, 0, 6, 0, skillSet, [], 0, 0, 0, 
+			[MeleeWeapons.Claws()])
+			.cloneMany(4);
+	}
+	if (location.href.indexOf('elks') != -1) {
+		var skillSet = {};
+		skillSet[Skill.Natural] = 5;
+		npcs = new Npc('Elk {0}', 11, 3, 4, 9, 3, 2, 3, 1, 1, 0, 6, 0, skillSet, [], 0, 0, 0, 
+			[MeleeWeapons.Horns()])
+			.cloneMany(3);
+
+		var skillSet = {};
+		skillSet[Skill.Natural] = 7;
+		npcs = npcs.concat(new Npc('Grandfather Elk', 11, 4, 4, 9, 6, 3, 6, 3, 3, 0, 6, 0, skillSet, [], 0, 0, 0, 
+			[MeleeWeapons.Horns()]))
+	}
+	if (location.href.indexOf('werewolfs') != -1) {
+		var skillSet = {};
+		skillSet[Skill.Natural] = 6;
+		npcs = [new Npc('Dolph Adept', 7, 6, 8, 5, 5, 2, 4, 3, 3, 6, 6, 0, skillSet, [], 3, 0, 0, 
+			[MeleeWeapons.Bite(3)])];
+
+		var skillSet = {};
+		skillSet[Skill.Natural] = 9;
+		npcs = npcs.concat([new Npc('Daciana Shaman', 4, 3, 5, 3, 5, 3, 4, 5, 4, 6, 6, 0, skillSet, [], 0, 0, 0, 
+			[MeleeWeapons.Bite(1)])])
+
+		var skillSet = {};
+		skillSet[Skill.Natural] = 6;
+		npcs = npcs.concat([new Npc('Spirit of Beasts', 8, 7, 6, 8, 6, 6, 6, 6, 3, 6, 6, 0, skillSet, [], 1, 0, 0, 
+			[MeleeWeapons.Natural(0)])])
+	}
+	if (location.href.indexOf('boars') != -1) {
+		var skillSet = {};
+		skillSet[Skill.Natural] = 7;
+		npcs = [new Npc('Golden Boar', 7, 5, 4, 9, 5, 2, 5, 1, 2, 0, 6, 0, skillSet, [], 0, 0, 0, 
+			[MeleeWeapons.Natural(2)])];
+	}
 
 	var skillSet = {};
 	skillSet[Skill.Pistols] = 3;
