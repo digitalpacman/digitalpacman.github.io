@@ -1,0 +1,82 @@
+.incremental {
+	cursor: pointer;
+}
+.character {
+	border: 1px solid black;
+	padding: 5px;
+	position: relative;
+	width: 95%;
+	margin: 5px auto;
+	min-width: 650px;
+	clear: both;
+}
+.npc {
+}
+.pc {
+
+}
+.action-grp {
+	margin: 5px 0;
+	clear: both;
+}
+.character .name {
+	margin: 0 0 10px 0;
+	font-size: 18px;
+}
+.modifier {
+	padding: 3px 5px;
+	border: 0;
+	background-color: lightgray;
+	width: 24%;
+	margin-right: 1%;
+	display: block;
+	float: left;
+	margin-top: 4px;
+}
+.modifier.on {
+	font-weight: bold;
+}
+br {
+	clear: both;
+	height:0px;
+}
+button.fixed-wide {
+	width: 75px;
+}
+.end-turn {
+	position: absolute;
+	right: 10px;
+	top: 10px;
+}
+.active {
+	background-color: #F0FFF0;
+}
+.statline {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	clear: both;
+}
+.statline li {
+	float: left;
+	width: 30px;
+	text-align:center;
+}
+.statline.title li {
+	background-color: #ccc;
+	border-bottom: 2px solid #000;
+}
+body {
+	font-family: verdana;
+	font-size: 16px;
+}
+button {
+	font-family: verdana;
+	font-size: 11px;
+}
+.defense-status-mods, .attack-status-mods {
+	display: none;
+}
+.defense-status-mods.on, .attack-status-mods.on {
+	display: block;
+}

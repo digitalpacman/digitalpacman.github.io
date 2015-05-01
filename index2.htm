@@ -6,6 +6,9 @@
 <script src="scrollTo/jquery.scrollTo.min.js"></script>
 <script src="alertify/js/alertify.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/knockout/3.3.0/knockout-min.js"></script>
+<script src="knockout.mapping-latest.js"></script>
+<script src="lz-string.min.js"></script>
+
 
 <link href="alertify/css/core.css" rel="stylesheet" type="text/css"></link>
 <link href="alertify/css/themes/default/default.css" rel="stylesheet" type="text/css"></link>
@@ -19,13 +22,14 @@ ko.observableIncremental = function(val) {
 	return observable;
 };
 
-var Skill = {
-	Pistols: "Pistols",
-	Automatics: "Automatics",
-	LongArms: "LongArms",
-	Blades: "Blades",
-	Natural: "Natural",
-};
+function SkillArray(data) {
+	var self = this;
+	self.pistols = data.pistols || 0;
+	self.automatics = data.automatics || 0;
+	self.longArms = data.longArms || 0;
+	self.blades = data.blades || 0;
+	self.unarmed = data.unarmed || 0;
+}
 
 var FireModeEnum = function(name, bulletsUsed, defenseMod, causesProgressiveRecoil) {
 	var self = this;
@@ -103,7 +107,8 @@ var Status = {
 
 function Initiative(reaction, intuition, bonusDice, dataProcessing, conditionModifier) {
 	var self = this;
-	self.modes = { 'AR': Math.min(1 + bonusDice, 5), 'ColdSim VR': 3, 'HotSim VR': 4 };
+	self.bonusDice = ko.observable(bonusDice);
+	self.modes = { 'AR': Math.min(1 + self.bonusDice(), 5), 'ColdSim VR': 3, 'HotSim VR': 4 };
 	self.mode = ko.observable('AR');
 	self.arModifier = ko.computed(function() { return reaction() + intuition() });
 	self.vrModifier = ko.computed(function() { return dataProcessing() + intuition() });
@@ -147,29 +152,47 @@ function Initiative(reaction, intuition, bonusDice, dataProcessing, conditionMod
 }
 
 function AddPc(name, reaction, intuition, bonusInitiativeDice, dataProcessing, firewall) {
-	return new Npc(name, 0, 0, reaction, 0, 0, 0, intuition, 0, 0, 0, 0, 0, {}, [], bonusInitiativeDice, dataProcessing, firewall);
+	var pc = new Npc(name, new NpcAttributes(0, 0, reaction, 0, 0, 0, intuition, 0, 0, 0, 0), 0, {}, [], bonusInitiativeDice, dataProcessing, firewall);
+	pc.isPC = true
+	return pc;
 }
 
-function Npc(name, body, agility, reaction, strength, willpower, logic, intuition, charisma, edge, magic, essence, armor, skills, guns, bonusInitiativeDice, dataProcessing, firewall, meleeWeapons) {
+function NpcAttributes(body, agility, reaction, strength, willpower, logic, intuition, charisma, edge, magic, essence) {
+	var self = this;
+	self.body = body;
+	self.agility = agility;
+	self.reaction = reaction;
+	self.strength = strength;
+	self.willpower = willpower;
+	self.logic = logic;
+	self.intuition = intuition;
+	self.charisma = charisma;
+	self.edge = edge;
+	self.magic = magic;
+	self.essence = essence;
+}
+
+function Npc(name, attributes, armor, skills, guns, bonusInitiativeDice, dataProcessing, firewall, meleeWeapons) {
 	var self = this;
 	self.activeStatusMenu = ko.observable("hide");
 	self.name = name;
-	self.body = ko.observable(body);
-	self.agility = ko.observable(agility);
-	self.reaction = ko.observable(reaction);
-	self.strength = ko.observable(strength);
-	self.willpower = ko.observable(willpower);
-	self.logic = ko.observable(logic);
-	self.intuition = ko.observable(intuition);
-	self.charisma = ko.observable(charisma);
-	self.edge = ko.observable(edge);
-	self.magic = ko.observable(magic);
-	self.essence = ko.observable(essence);
+	self.attributes = attributes;
+	self.body = ko.observable(attributes.body);
+	self.agility = ko.observable(attributes.agility);
+	self.reaction = ko.observable(attributes.reaction);
+	self.strength = ko.observable(attributes.strength);
+	self.willpower = ko.observable(attributes.willpower);
+	self.logic = ko.observable(attributes.logic);
+	self.intuition = ko.observable(attributes.intuition);
+	self.charisma = ko.observable(attributes.charisma);
+	self.edge = ko.observable(attributes.edge);
+	self.magic = ko.observable(attributes.magic);
+	self.essence = ko.observable(attributes.essence);
 	self.dataProcessing = ko.observableIncremental(dataProcessing);
 	self.firewall = ko.observableIncremental(firewall);
 	self.armor = armor;
 	self.recoilCompensation = ko.computed(function() { return Math.ceil(self.strength() / 3) + 1; });
-	self.skills = skills;
+	self.skills = new SkillArray(skills);
 	self.statuses = ko.observableArray([]);
 	self.isActive = ko.observable(false);
 	self.hasActed = ko.observable(false);
@@ -267,7 +290,7 @@ function Npc(name, body, agility, reaction, strength, willpower, logic, intuitio
 			return self2.mode.name + ' ' + self2.modifier() + '(' + self2.mode.defenseMod + ')';
 		});
 	};
-	self.defenseFireModes = ko.observableArray([]);
+	self.defenseFireModes = [];
 	var fireModes = FireMode.asArray();
 	for (var i in fireModes) {
 		self.defenseFireModes.push(new DefenseFireMode(fireModes[i]));
@@ -330,14 +353,6 @@ function Npc(name, body, agility, reaction, strength, willpower, logic, intuitio
 		gun.usedAmmo(gun.usedAmmo() + fireMode.mode.bulletsUsed);
 
 		return dicePool;
-	};
-
-	self.melee = function(weapon) {
-		var dicePool = self.agility() + 
-			self.skills[weapon.linkedSkill] + 
-			self.conditionModifier() + 
-			self.meleeAttackModifiers();
-
 	};
 
 	self.gunDefend = function(fireMode) {
@@ -405,7 +420,7 @@ function Npc(name, body, agility, reaction, strength, willpower, logic, intuitio
 		for (var i in self.meleeWeapons()) {
 			meleeWeapons.push(self.meleeWeapons()[i].clone());
 		}
-		return new Npc(name, body, agility, reaction, strength, willpower, logic, intuition, charisma, edge, magic, essence, armor, skills, guns, 
+		return new Npc(name, attributes, armor, skills, guns, 
 			bonusInitiativeDice, dataProcessing, firewall, meleeWeapons);
 	};
 
@@ -425,6 +440,7 @@ function MeleeWeapon(name, accuracy, reach, damage, damageType, armorPenetration
 	self.name = name;
 	self.accuracy = accuracy;
 	self.reach = reach;
+	self.damage = damage;
 	self.damageType = damageType;
 	self.armorPenetration = armorPenetration;
 	self.linkedSkill = linkedSkill;
@@ -449,7 +465,7 @@ function MeleeWeapon(name, accuracy, reach, damage, damageType, armorPenetration
 				npc.edgeModifier() +
 				self.miscModifier();
 		});
-		self.damage = ko.computed(function() { return npc.strength() + damage });
+		self.damageValue = ko.computed(function() { return npc.strength() + self.damage });
 	};
 
 	self.clone = function() {
@@ -506,7 +522,7 @@ function Gun(name, accuracy, damage, damageType, armorPenetration, fireModes, re
 				return mode.name + ' ' + self2.modifier() + '(-' + mode.bulletsUsed + ')'
 			});
 		};
-		self.fireModes = ko.observableArray([]);
+		self.fireModes = [];
 		for (var i in fireModes) {
 			self.fireModes.push(new GunFireMode(fireModes[i]));
 		}
@@ -515,25 +531,25 @@ function Gun(name, accuracy, damage, damageType, armorPenetration, fireModes, re
 
 //function Gun(name, accuracy, damage, damageType, armorPenetration, fireModes, recoilCompensation, maxAmmo, linkedSkill) {
 var Guns = {
-	AresPredatorV: function () { return new Gun('Ares Predator V', 5, 8, 'P', -1, [FireMode.SA,FireMode.SB], 0, 15, Skill.Pistols); },
-	BrowningUltraPower: function () { return new Gun('Browning Ultra-Power', 6, 8, 'P', -1, [FireMode.SA,FireMode.SB], 0, 10, Skill.Pistols); },
-	RugerSuperWarhawk: function () { return new Gun('Ruger Super Warhawk', 5, 9, 'P', -2, [FireMode.SS], 0, 6, Skill.Pistols); },
-	ColtGovernment2066: function () { return new Gun('Colt Government 2066', 6, 7, 'P', -1, [FireMode.SA,FireMode.SB], 0, 14, Skill.Pistols); },
-	ColtCobraTZ120: function () { return new Gun('Colt Cobra TZ-120', 5, 7, 'P', 0, [FireMode.SA,FireMode.BF,FireMode.FA], 3, 32, Skill.Automatics); },
-	AK97: function () { return new Gun('AK-97', 5, 10, 'P', -2, [FireMode.SA,FireMode.BF,FireMode.FA], 0, 38, Skill.Automatics); },
-	Bow: function (rating) { return new Gun('Bow ' + rating, 6, rating + 2, 'P', -Math.ceil(rating / 4), [FireMode.SS], 0, 99, Skill.Automatics); },
-	DefianceT250: function () { return new Gun('Defiance T-250', 4, 10, 'P', -1, [FireMode.SS,FireMode.SA,FireMode.SB], 0, 5, Skill.LongArms); },
+	AresPredatorV: function () { return new Gun('Ares Predator V', 5, 8, 'P', -1, [FireMode.SA,FireMode.SB], 0, 15, 'pistols'); },
+	BrowningUltraPower: function () { return new Gun('Browning Ultra-Power', 6, 8, 'P', -1, [FireMode.SA,FireMode.SB], 0, 10, 'pistols'); },
+	RugerSuperWarhawk: function () { return new Gun('Ruger Super Warhawk', 5, 9, 'P', -2, [FireMode.SS], 0, 6, 'pistols'); },
+	ColtGovernment2066: function () { return new Gun('Colt Government 2066', 6, 7, 'P', -1, [FireMode.SA,FireMode.SB], 0, 14, 'pistols'); },
+	ColtCobraTZ120: function () { return new Gun('Colt Cobra TZ-120', 5, 7, 'P', 0, [FireMode.SA,FireMode.BF,FireMode.FA], 3, 32, 'automatics'); },
+	AK97: function () { return new Gun('AK-97', 5, 10, 'P', -2, [FireMode.SA,FireMode.BF,FireMode.FA], 0, 38, 'automatics'); },
+	Bow: function (rating) { return new Gun('Bow ' + rating, 6, rating + 2, 'P', -Math.ceil(rating / 4), [FireMode.SS], 0, 99, 'automatics'); },
+	DefianceT250: function () { return new Gun('Defiance T-250', 4, 10, 'P', -1, [FireMode.SS,FireMode.SA,FireMode.SB], 0, 5, 'longArms'); },
 };
 
 //function MeleeWeapon(name, accuracy, reach, damage, damageType, armorPenetration, linkedSkill) {
 var MeleeWeapons = {
-	CombatKnife: function() { return new MeleeWeapon('Combat Knife', 6, 0, 2, 'P', -3, Skill.Blades) },
-	Sword: function() { return new MeleeWeapon('Sword', 6, 1, 3, 'P', -2, Skill.Blades) },
-	ThrowingKnife: function() { return new MeleeWeapon('Throwing Knife', 6, 0, 1, 'P', -1, Skill.Blades) },
-	Claws: function() { return new MeleeWeapon('Claws', 8, 0, 3, 'P', -1, Skill.Natural) },
-	Horns: function() { return new MeleeWeapon('Horns', 8, 1, 5, 'P', 0, Skill.Natural) },
-	Bite: function(damage) { return new MeleeWeapon('Horns', 8, 1, damage, 'P', 0, Skill.Natural) },
-	Natural: function(damage) { return new MeleeWeapon('Natural', 8, 0, damage, 'P', 0, Skill.Natural) },
+	CombatKnife: function() { return new MeleeWeapon('Combat Knife', 6, 0, 2, 'P', -3, 'blades') },
+	Sword: function() { return new MeleeWeapon('Sword', 6, 1, 3, 'P', -2, 'blades') },
+	ThrowingKnife: function() { return new MeleeWeapon('Throwing Knife', 6, 0, 1, 'P', -1, 'blades') },
+	Claws: function() { return new MeleeWeapon('Claws', 8, 0, 3, 'P', -1, 'unarmed') },
+	Horns: function() { return new MeleeWeapon('Horns', 8, 1, 5, 'P', 0, 'unarmed') },
+	Bite: function(damage) { return new MeleeWeapon('Horns', 8, 1, damage, 'P', 0, 'unarmed') },
+	Natural: function(damage) { return new MeleeWeapon('Natural', 8, 0, damage, 'P', 0, 'unarmed') },
 };
 
 function log(success, msg) {
@@ -551,65 +567,199 @@ function log(success, msg) {
 
 function AppViewModel() {
 	var self = this;
-
-//function Npc(name, body, agility, reaction, strength, willpower, logic, intuition, charisma, edge, magic, essence, armor, skills, guns, bonusInitiativeDice, dataProcessing, firewall, meleeWeapons) {
-
-	var npcs = [];
-	if (location.href.indexOf('griffins') != -1) {
-		var skillSet = {};
-		skillSet[Skill.Natural] = 7;
-		npcs = new Npc('Griffin {0}', 8, 6, 4, 8, 4, 3, 5, 1, 1, 0, 6, 0, skillSet, [], 0, 0, 0, 
-			[MeleeWeapons.Claws()])
-			.cloneMany(4);
-	}
-	if (location.href.indexOf('elks') != -1) {
-		var skillSet = {};
-		skillSet[Skill.Natural] = 5;
-		npcs = new Npc('Elk {0}', 11, 3, 4, 9, 3, 2, 3, 1, 1, 0, 6, 0, skillSet, [], 0, 0, 0, 
-			[MeleeWeapons.Horns()])
-			.cloneMany(3);
-
-		var skillSet = {};
-		skillSet[Skill.Natural] = 7;
-		npcs = npcs.concat(new Npc('Grandfather Elk', 11, 4, 4, 9, 6, 3, 6, 3, 3, 0, 6, 0, skillSet, [], 0, 0, 0, 
-			[MeleeWeapons.Horns()]))
-	}
-	if (location.href.indexOf('werewolfs') != -1) {
-		var skillSet = {};
-		skillSet[Skill.Natural] = 6;
-		npcs = [new Npc('Dolph Adept', 7, 6, 8, 5, 5, 2, 4, 3, 3, 6, 6, 0, skillSet, [], 3, 0, 0, 
-			[MeleeWeapons.Bite(3)])];
-
-		var skillSet = {};
-		skillSet[Skill.Natural] = 9;
-		npcs = npcs.concat([new Npc('Daciana Shaman', 4, 3, 5, 3, 5, 3, 4, 5, 4, 6, 6, 0, skillSet, [], 0, 0, 0, 
-			[MeleeWeapons.Bite(1)])])
-
-		var skillSet = {};
-		skillSet[Skill.Natural] = 6;
-		npcs = npcs.concat([new Npc('Spirit of Beasts', 8, 7, 6, 8, 6, 6, 6, 6, 3, 6, 6, 0, skillSet, [], 1, 0, 0, 
-			[MeleeWeapons.Natural(0)])])
-	}
-	if (location.href.indexOf('boars') != -1) {
-		var skillSet = {};
-		skillSet[Skill.Natural] = 7;
-		npcs = [new Npc('Golden Boar', 7, 5, 4, 9, 5, 2, 5, 1, 2, 0, 6, 0, skillSet, [], 0, 0, 0, 
-			[MeleeWeapons.Natural(2)])];
+	self.newEncounterName = ko.observable('');
+	self.savedEncounters = ko.observableArray([]);
+	self.selectedEncounter = ko.observable();
+	var encounters = JSON.parse(localStorage.getItem('encounters'));
+	if (encounters) {
+		for (var i in encounters) {
+			self.savedEncounters.push({name: i, value: encounters[i]});
+		}
 	}
 
-	var skillSet = {};
-	skillSet[Skill.Pistols] = 3;
-	var pcs = [
-		AddPc('Ben', 3, 6, 0, 5, 6),
-		AddPc('Adam', 7, 4, 2, 3, 3),
-		AddPc('Bill', 4, 3, 0, 3, 3),
-		AddPc('Jim', 3, 4, 0, 6, 6),
-		AddPc('Aaron', 7, 5, 0, 3, 3)
-	];
-	for (var i in pcs) { pcs[i].isPC = true; }
+	var loadCompressedEncounter = function(compressedEncounter) {
+		console.log(compressedEncounter)
+		var encounterData = uncompressEncounter(compressedEncounter);
+		console.log(encounterData);
+		var npcs = parseEncounterData(encounterData);
+		console.log(npcs)
+		loadNpcs(npcs);
+	};
 
-	self.npcs = ko.observableArray(npcs.concat(pcs));
-	// self.npcs = ko.observableArray(pcs);
+	var uncompressEncounter = function(compressedEncounter) {
+		var data = LZString.decompressFromBase64(compressedEncounter).split(',');
+
+		for (var i = 0; i < data.length; i++) {
+			if (!isNaN(data[i])) data[i] = parseInt(data[i]);
+			if (data[i] == "true" || data[i] == "false") data[i] = data[i] == "true";
+		}
+
+		return data;
+	};
+
+	var parseEncounterData = function(data) {
+		var npcs = [];
+		for (var i = 0; i+10 < data.length; ) {
+			var npc = {};
+			npc.name = data[i++];
+
+			npc.attributes = {};
+			npc.attributes.body = data[i++];
+			npc.attributes.agility = data[i++];
+			npc.attributes.reaction = data[i++];
+			npc.attributes.strength = data[i++];
+			npc.attributes.willpower = data[i++];
+			npc.attributes.logic = data[i++];
+			npc.attributes.intuition = data[i++];
+			npc.attributes.charisma = data[i++];
+			npc.attributes.edge = data[i++];
+			npc.attributes.magic = data[i++];
+			npc.attributes.essence = data[i++];
+
+			npc.armor = data[i++];
+
+			npc.skills = {};
+			npc.skills.pistols = data[i++];
+			npc.skills.automatics = data[i++];
+			npc.skills.longArms = data[i++];
+			npc.skills.blades = data[i++];
+			npc.skills.unarmed = data[i++];
+
+			npc.initiative = {};
+			npc.initiative.bonusDice = data[i++];
+			npc.initiative.mode = data[i++];
+			npc.initiative.rolledScore = data[i++];
+
+			npc.dataProcessing = data[i++];
+			npc.firewall = data[i++];
+
+			npc.activeStatusMenu = data[i++];
+			npc.isActive = data[i++];
+			npc.hasActed = data[i++];
+			npc.isPC = data[i++];
+			npc.edging = data[i++];
+			npc.edgePoints = data[i++];
+			npc.useStun = data[i++];
+			npc.miscDefenseMod = data[i++];
+			npc.previouslyDefendedAttacks = data[i++];
+			npc.resistanceMiscModifier = data[i++];
+			npc.resistanceMiscModifier = data[i++];
+			npc.progressiveRecoil = data[i++];
+			npc.miscMatrixDefense = data[i++];
+
+			var c = data[i++];
+			npc.guns = [];
+			for (var x = 0; x < c; x++) {
+				npc.guns[x] = {};
+				npc.guns[x].name = data[i++];
+				npc.guns[x].accuracy = data[i++];
+				npc.guns[x].damage = data[i++];
+				npc.guns[x].damageType = data[i++];
+				npc.guns[x].armorPenetration = data[i++];
+				npc.guns[x].fireModes = data[i++];
+				npc.guns[x].recoilCompensation = data[i++];
+				npc.guns[x].maxAmmo = data[i++];
+				npc.guns[x].linkedSkill = data[i++];
+				npc.guns[x].usedAmmo = data[i++];
+				npc.guns[x].miscModifier = data[i++];
+			}
+
+			var c = data[i++];
+			npc.meleeWeapons = [];
+			for (var x = 0; x < c; x++) {
+				npc.meleeWeapons[x] = {};
+				npc.meleeWeapons[x].name = data[i++];
+				npc.meleeWeapons[x].accuracy = data[i++];
+				npc.meleeWeapons[x].reach = data[i++];
+				npc.meleeWeapons[x].damage = data[i++];
+				npc.meleeWeapons[x].damageType = data[i++];
+				npc.meleeWeapons[x].armorPenetration = data[i++];
+				npc.meleeWeapons[x].linkedSkill = data[i++];
+				npc.meleeWeapons[x].miscModifier = data[i++];
+			}
+			npcs.push(npc);
+		}
+		return npcs;
+	};
+
+	var loadNpcs = function(npcs) {
+		var npcsVM = [];
+		for (var n in npcs) {
+			var npc = npcs[n];
+
+			var npcVM = new Npc(npc.name, npc.attributes, npc.armor, npc.skills, [], npc.initiative.bonusDice, npc.dataProcessing, npc.firewall, []);
+			npcVM.activeStatusMenu(npc.activeStatusMenu);
+			npcVM.isActive(npc.isActive);
+			npcVM.hasActed(npc.hasActed);
+			npcVM.isPC = npc.isPC;
+			npcVM.edging(npc.edging);
+			npcVM.edgePoints(npc.edgePoints);
+			npcVM.useStun(npc.useStun);
+			npcVM.miscDefenseMod(npc.miscDefenseMod);
+			npcVM.previouslyDefendedAttacks(npc.previouslyDefendedAttacks);
+			npcVM.resistanceMiscModifier(npc.resistanceMiscModifier);
+			npcVM.resistanceMiscModifier(npc.resistanceMiscModifier);
+			npcVM.progressiveRecoil(npc.progressiveRecoil);
+			npcVM.miscMatrixDefense(npc.miscMatrixDefense);
+
+			npcVM.initiative.mode(npc.initiative.mode);
+			npcVM.initiative.rolledScore(npc.initiative.rolledScore);
+
+			for (var g in npc.guns) {
+				var gun = npc.guns[g];
+
+				var gunVM = new Gun(gun.name, gun.accuracy, gun.damage, gun.damageType, gun.armorPenetration, gun.fireModes, gun.recoilCompensation, gun.maxAmmo, gun.linkedSkill);
+				gunVM.usedAmmo(gun.usedAmmo);
+				gunVM.miscModifier(gun.miscModifier);
+
+				npcVM.addGun(gunVM);
+			}
+
+			for (var w in npc.meleeWeapons) {
+				var weapon = npc.meleeWeapons[w];
+
+				var weaponVM = new MeleeWeapon(weapon.name, weapon.accuracy, weapon.reach, weapon.damage, weapon.damageType, weapon.armorPenetration, weapon.linkedSkill);
+				weaponVM.miscModifier(weapon.miscModifier);
+
+				npcVM.addMeleeWeapon(weaponVM);
+			}
+
+			npcsVM.push(npcVM);
+		}
+		self.npcs(npcsVM);
+	};
+
+//function Npc(name, attributes, armor, skills, guns, bonusInitiativeDice, dataProcessing, firewall, meleeWeapons) {
+//function NpcAttributes(body, agility, reaction, strength, willpower, logic, intuition, charisma, edge, magic, essence) {
+
+	self.npcs = ko.observableArray([]);
+	if (location.href.indexOf('#') != -1) {
+		var compressedEncounter = location.href.substring(location.href.indexOf('#')+1);
+		loadCompressedEncounter(compressedEncounter);
+	}
+	else if (location.href.indexOf('griffins') != -1) {
+		self.npcs(new Npc('Griffin {0}', new NpcAttributes(8, 6, 4, 8, 4, 3, 5, 1, 1, 0, 6), 0, {unarmed: 7}, [], 0, 0, 0, [MeleeWeapons.Claws()]).cloneMany(4));
+	}
+	else if (location.href.indexOf('elks') != -1) {
+		self.npcs(new Npc('Elk {0}', new NpcAttributes(11, 3, 4, 9, 3, 2, 3, 1, 1, 0, 6), 0, {unarmed: 5}, [], 0, 0, 0, [MeleeWeapons.Horns()]).cloneMany(3)
+			.concat(new Npc('Grandfather Elk', new NpcAttributes(11, 4, 4, 9, 6, 3, 6, 3, 3, 0, 6), 0, {unarmed: 7}, [], 0, 0, 0, [MeleeWeapons.Horns()])));
+	}
+	else if (location.href.indexOf('werewolfs') != -1) {
+		self.npcs([new Npc('Dolph Adept', new NpcAttributes(7, 6, 8, 5, 5, 2, 4, 3, 3, 6, 6), 0, {unarmed: 6}, [], 3, 0, 0, [MeleeWeapons.Bite(3)])]
+			.concat([new Npc('Daciana Shaman', new NpcAttributes(4, 3, 5, 3, 5, 3, 4, 5, 4, 6, 6), 0, {unarmed: 9}, [], 0, 0, 0, [MeleeWeapons.Bite(1)])])
+			.concat([new Npc('Spirit of Beasts', new NpcAttributes(8, 7, 6, 8, 6, 6, 6, 6, 3, 6, 6), 0, {unarmed: 6}, [], 1, 0, 0, [MeleeWeapons.Natural(0)])]));
+	}
+	else if (location.href.indexOf('boars') != -1) {
+		self.npcs([new Npc('Golden Boar', new NpcAttributes(7, 5, 4, 9, 5, 2, 5, 1, 2, 0, 6), 0, {unarmed: 7}, [], 0, 0, 0, [MeleeWeapons.Natural(2)])]);
+	}
+
+	// var pcs = [
+	// 	AddPc('Ben', 3, 6, 0, 5, 6),
+	// 	AddPc('Adam', 7, 4, 2, 3, 3),
+	// 	AddPc('Bill', 4, 3, 0, 3, 3),
+	// 	AddPc('Jim', 3, 4, 0, 6, 6),
+	// 	AddPc('Aaron', 7, 5, 0, 3, 3)
+	// ];
 
 	self.attackModifiers = Status.attackModifiers();
 	self.defenseModifiers = Status.defenseModifiers();
@@ -643,9 +793,8 @@ function AppViewModel() {
 		}
 		self.npcs.sort(sortByInitiative);
 		self.npcs()[0].startTurn();
-		$.scrollTo('.character:eq(0)', 300);
+		//$.scrollTo('.character:eq(0)', 300);
 	};
-	self.startCombatTurn();
 
 	self.startNextInitiativePass = function() {
 		log("Starting new initiative pass");
@@ -660,6 +809,7 @@ function AppViewModel() {
 	};
 
 	self.endTurn = function() {
+		console.log(1)
 		for (var i = 0; i < self.npcs().length; i++) {
 			if (self.npcs()[i].isActive()) {
 				self.npcs()[i].endTurn();
@@ -692,8 +842,6 @@ function AppViewModel() {
 		}
 	}
 
-	self.statusModActive = ko.observable(0);
-
 	self.rollMatrixDefense = function(npc, matrixDefense) {
 		var dicePool = matrixDefense.modifier();
 		generalOutput('Matrix Defense', roll(dicePool, npc.useEdge()));
@@ -724,7 +872,7 @@ function AppViewModel() {
 
 	self.rollMeleeAttack = function(npc, meleeWeapon) {
 		var diceResults = roll(meleeWeapon.modifier(), npc.useEdge());
-		generalOutput(meleeWeapon.name + '<br/>' + meleeWeapon.damage() + meleeWeapon.damageType + ' DV ' + meleeWeapon.accuracy + ' acc', diceResults);
+		generalOutput(meleeWeapon.name + '<br/>' + meleeWeapon.damageValue() + meleeWeapon.damageType + ' DV ' + meleeWeapon.accuracy + ' acc', diceResults);
 	};
 
 	self.toggleDefenseModifier = function(npc, modifier, event) {
@@ -737,6 +885,108 @@ function AppViewModel() {
 			$target.removeClass('on');
 		}
 	}
+
+	self.saveEncounter = function(vm) {
+		var o = ko.toJS(vm);
+		var s = "";
+		var p = function(d) {
+			s+=d+',';
+		}
+		for (var n in o.npcs) {
+			var x = o.npcs[n];
+			p(x.name);
+
+			p(x.attributes.body);
+			p(x.attributes.agility);
+			p(x.attributes.reaction);
+			p(x.attributes.strength);
+			p(x.attributes.willpower);
+			p(x.attributes.logic);
+			p(x.attributes.intuition);
+			p(x.attributes.charisma);
+			p(x.attributes.edge);
+			p(x.attributes.magic);
+			p(x.attributes.essence);
+
+			p(x.armor);
+
+			p(x.skills.pistols);
+			p(x.skills.automatics);
+			p(x.skills.longArms);
+			p(x.skills.blades);
+			p(x.skills.unarmed);
+
+			p(x.initiative.bonusDice);
+			p(x.initiative.mode);
+			p(x.initiative.rolledScore);
+
+			p(x.dataProcessing);
+			p(x.firewall);
+
+			p(x.activeStatusMenu);
+			p(x.isActive);
+			p(x.hasActed);
+			p(x.isPC)
+			p(x.edging);
+			p(x.edgePoints);
+			p(x.useStun);
+			p(x.miscDefenseMod);
+			p(x.previouslyDefendedAttacks);
+			p(x.resistanceMiscModifier);
+			p(x.resistanceMiscModifier);
+			p(x.progressiveRecoil);
+			p(x.miscMatrixDefense);
+
+			p(x.guns.length);
+			for (var g in x.guns) {
+				var y = x.guns[g];
+				p(y.name);
+				p(y.accuracy);
+				p(y.damage);
+				p(y.damageType);
+				p(y.armorPenetration);
+				p(y.fireModes);
+				p(y.recoilCompensation);
+				p(y.maxAmmo);
+				p(y.linkedSkill);
+				p(y.usedAmmo);
+				p(y.miscModifier);
+
+			}
+
+			p(x.meleeWeapons.length);
+			for (var g in x.meleeWeapons) {
+				var y = x.meleeWeapons[g];
+				p(y.name);
+				p(y.accuracy);
+				p(y.reach);
+				p(y.damage);
+				p(y.damageType);
+				p(y.armorPenetration);
+				p(y.linkedSkill);
+				p(y.miscModifier);
+			}
+		}
+
+		console.log(s);
+		var cs = LZString.compressToBase64(s);
+		console.log(cs);
+		console.log(cs.length);
+
+		var encounters = JSON.parse(localStorage.getItem('encounters'));
+		if (!encounters) encounters = {};
+		encounters[self.newEncounterName()] = cs;
+		localStorage.setItem('encounters', JSON.stringify(encounters));
+		self.savedEncounters.push({name: self.newEncounterName(), value: cs});
+		location.href = '#' + cs;
+	};
+
+	self.loadEncounter = function() {
+		if (!self.selectedEncounter()) return;
+
+		var compressedEncounter = self.selectedEncounter().value;
+		loadCompressedEncounter(compressedEncounter);
+	};
 }
 
 function rollSum(dice) {
@@ -773,95 +1023,19 @@ $(function() {
 	ko.applyBindings(window.m);
 });
 </script>
-<style type="text/css">
-.incremental {
-	cursor: pointer;
-}
-.character {
-	border: 1px solid black;
-	padding: 5px;
-	position: relative;
-	width: 95%;
-	margin: 5px auto;
-	min-width: 650px;
-	clear: both;
-}
-.npc {
-}
-.pc {
-
-}
-.action-grp {
-	margin: 5px 0;
-	clear: both;
-}
-.character .name {
-	margin: 0 0 10px 0;
-	font-size: 18px;
-}
-.modifier {
-	padding: 3px 5px;
-	border: 0;
-	background-color: lightgray;
-	width: 24%;
-	margin-right: 1%;
-	display: block;
-	float: left;
-	margin-top: 4px;
-}
-.modifier.on {
-	font-weight: bold;
-}
-br {
-	clear: both;
-	height:0px;
-}
-button.fixed-wide {
-	width: 75px;
-}
-.end-turn {
-	position: absolute;
-	right: 10px;
-	top: 10px;
-}
-.active {
-	background-color: #F0FFF0;
-}
-.statline {
-	margin: 0;
-	padding: 0;
-	list-style: none;
-	clear: both;
-}
-.statline li {
-	float: left;
-	width: 30px;
-	text-align:center;
-}
-.statline.title li {
-	background-color: #ccc;
-	border-bottom: 2px solid #000;
-}
-body {
-	font-family: verdana;
-	font-size: 16px;
-}
-button {
-	font-family: verdana;
-	font-size: 11px;
-}
-.defense-status-mods, .attack-status-mods {
-	display: none;
-}
-.defense-status-mods.on, .attack-status-mods.on {
-	display: block;
-}
-</style>
+<link href="view.css" type="text/css" rel="stylesheet"></link>
 </head>
 
 <body>
 <div>
 	<button data-bind="click: startCombatTurn">New Combat Turn</button>
+	<input type="text" data-bind="value: newEncounterName" />
+	<button data-bind="click: saveEncounter">Save</button>
+	<span data-bind="visible: savedEncounters().length > 0">
+		<select data-bind="options: savedEncounters, optionsText: 'name', value: selectedEncounter"></select>
+		<button data-bind="click: function() { loadEncounter() }">Load</button>
+		<button data-bind="click: function() { deleteEncounter() }">Delete</button>
+	</span>
 </div>
 <div data-bind="foreach: npcs">
 	<div class="character" data-bind="css: { active: isActive, npc: !isPC, pc: isPC }">
@@ -958,7 +1132,7 @@ button {
 				</div>
 			</div>
 			<div class="action-grp">
-				<label><input name="status-mod-choice" type="radio" value="hide" checked="checked" data-bind="checked: activeStatusMenu">Hide</label>
+				<label><input name="status-mod-choice" type="radio" value="hide" data-bind="checked: activeStatusMenu">Hide</label>
 				<label><input name="status-mod-choice" type="radio" value="defense" data-bind="checked: activeStatusMenu">Defense Mods</label>
 				<label><input name="status-mod-choice" type="radio" value="attack" data-bind="checked: activeStatusMenu">Attack Mods</label>
 			</div>
