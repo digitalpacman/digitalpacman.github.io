@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>JS Basics - Exercise</title>
+<link href="base.css" type="text/css" rel="stylesheet"></link>
+<script>
+// required tip: document.getElementById(id) is a function that returns the DOM node for an html element 
+// 	             var foo = document.getElementById('bar');
+
+// required tip: you read and change content by getting a DOM object using the above and using .innerHTML property
+//               document.getElementById('bar').innerHTML = 'something';
+
+// tip: you can check if something 'exists' with if (variable) { // exists }
+
+// tip: you can convert a string into a whole number using the function parseInt(string)
+
+// tip: console.log(anything) can be used to view results in chrome and firefox for debugging
+//      just open the console window using f12 and clicking the console tab
+function buttonPressedEvent() {
+	if (!window.val) val = 1;
+	val = val * 2;
+	document.getElementById('theNumber').innerHTML = val;
+}
+</script>
+</head>
+
+<body>
+
+<h1>JS Basics - Exercise</h1>
+
+<h3>There are various ways to complete this task. Anything you think of is good.</h3>
+
+<h3>When you click the <button id="theButton" onclick="buttonPressedEvent()">button</button></h3>
+
+<h3>the number <span id="theNumber">1</span> should double.</h3>
+
+<h3>you're looking for the number pattern 1, 2, 4, 8, 16, etc</h3>
+
+<script>
+// put any 'when the page loads' code here (optional)
+
+</script>
+</body>
+</html>

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>CodePen - A Pen by  Brad Laney</title>
+<style>
+ul {
+  padding-top: 10px;
+}
+body {
+  margin:0;
+  padding:0;
+}
+ul, li {
+  margin:0;
+  list-style:none;
+}
+div {
+  border-bottom: solid 1px #b4b4b4;
+  background-color: rgba(250, 250, 250, 0.97);
+  height:90px;
+  line-height:90px;
+  padding-left:40px;
+  font-weight:bold;
+  font-size:36px;
+  color: red;
+  font-family:verdana;
+}
+body {
+  background-color: #e1e1e1;
+}
+li {
+  padding:5px;
+  float:left;
+}
+img {
+  width:200px;
+  height:300px;
+  cursor:pointer;
+}
+h2 {
+  margin:0;
+  padding:10px 20px;
+  font-weight:bold;
+  font-family:verdana;
+  font-size:18px;
+  border-bottom: 1px solid #BBBBB9;
+}
+</style>
+
+<script>
+  window.console = window.console || function(t) {};
+  window.open = function(){ console.log('window.open is disabled.'); };
+  window.print = function(){ console.log('window.print is disabled.'); };
+  // Support hover state for mobile.
+  if (false) {
+    window.ontouchstart = function(){};
+  }
+</script>
+
+</head>
+
+<body>
+<script src="https://code.jquery.com/jquery-2.1.3.min.js"></script>
+<script src="https://code.jquery.com/ui/1.11.4/jquery-ui.min.js"></script>
+
+<div>BOOKFLIX</div>
+<h2>Your list</h2>
+<ul>
+  <li><img src="http://www.howarddavidjohnson.com/Halith%20book%20cover.jpg"/></li>
+  <li><img src="http://www.adazing.com/wp-content/uploads/2012/05/hundred-thousand-kingdoms.jpg"/></li>
+  <li><img src="http://www.fantasy-fan.org/files/Erikson/the_crippled_god_cover.jpg"/></li>
+  <li><img src="http://www.bookspotcentral.com/wp-content/uploads/2012/02/The-Scar_Sergey-and-Marina-Dyachenko.jpg"/></li>
+  <li><img src="http://www.howarddavidjohnson.com/Fantasy%20Book%20Cover%20Artwork.jpg"/></li>
+</ul>
+
+<script>
+$('li').click(function () {
+  $(this).fadeOut({ queue: false });
+  $(this).effect('scale', {
+      queue: false,
+      percent: 0
+  });
+});
+</script>
+
+</body>
+
+</html>

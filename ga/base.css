@@ -1,0 +1,16 @@
+body, button {
+	font-family: verdana;
+	font-size: 26px;
+	color: #333;
+	background-color: #ccc;
+}
+button {
+	background-color: #ddd;
+}
+a {
+	color: #6d84b4;
+	text-decoration: none;
+}
+a:hover {
+	text-decoration: underline;
+}
