@@ -74,9 +74,13 @@ h2 {
 </ul>
 
 <script>
-$('li').click(function () {
-  $(this).hide();
-});
+(function($) {
+  $(function() {
+    $('li').click(function () {
+      $(this).hide();
+    });
+  });
+})(jQuery);
 </script>
 
 </body>

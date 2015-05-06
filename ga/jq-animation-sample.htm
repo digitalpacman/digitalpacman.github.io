@@ -14,9 +14,13 @@
 <script>
 (function($) {
 	$(function() {
-		$('.wizardHarry').hide(3000, function() {
-			console.log('Look for me in the cnosole');
-		});
+		var whenHidden = function() {
+			$(this).show(1000, whenShown);
+		};
+		var whenShown = function() {
+			$(this).hide(1000, whenHidden);
+		};
+		$('.wizardHarry').hide(1000, whenHidden);
 	});
 })(jQuery);
 </script>

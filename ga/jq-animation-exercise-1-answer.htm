@@ -74,13 +74,17 @@ h2 {
 </ul>
 
 <script>
-$('li').click(function () {
-  $(this).fadeOut({ queue: false });
-  $(this).effect('scale', {
-      queue: false,
-      percent: 0
+(function($) {
+  $(function() {
+    $('li').click(function () {
+      $(this).fadeOut({ queue: false });
+      $(this).effect('scale', {
+          queue: false,
+          percent: 0
+      });
+    });
   });
-});
+})(jQuery);
 </script>
 
 </body>
