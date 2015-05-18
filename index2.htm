@@ -753,11 +753,14 @@ function AppViewModel() {
 		self.npcs([new Npc('Golden Boar', new NpcAttributes(7, 5, 4, 9, 5, 2, 5, 1, 2, 0, 6), 0, {unarmed: 7}, [], 0, 0, 0, [MeleeWeapons.Natural(2)])]);
 	}
 
+//function AddPc(name, reaction, intuition, bonusInitiativeDice, dataProcessing, firewall) {
 	self.npcs.push(AddPc('Ben', 3, 6, 0, 5, 6));
 	self.npcs.push(AddPc('Adam', 7, 4, 2, 3, 3));
 	self.npcs.push(AddPc('Bill', 4, 3, 0, 3, 3));
 	self.npcs.push(AddPc('Jim', 3, 4, 0, 6, 6));
 	self.npcs.push(AddPc('Aaron', 7, 5, 0, 3, 3));
+	self.npcs.push(AddPc('Roto Drone', 3, 3, 3, 6, 6));
+	self.npcs.push(AddPc('Steel Lynx Drone', 3, 3, 3, 6, 6));
 
 	self.attackModifiers = Status.attackModifiers();
 	self.defenseModifiers = Status.defenseModifiers();
