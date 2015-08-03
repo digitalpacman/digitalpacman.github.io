@@ -15,11 +15,20 @@
 
 <script>
 
-ko.observableIncremental = function(val) {
+ko.observableIncremental = function(val, min, max) {
 	var observable = ko.observable(val);
-	observable.raise = function() { observable(observable() + 1); };
-	observable.lower = function() { observable(observable() - 1); };
+	observable.raise = function() { if (max == undefined || observable() < max) observable(observable() + 1); };
+	observable.lower = function() { if (min == undefined || observable() > min) observable(observable() - 1); };
 	return observable;
+};
+
+ko.computedResetable = function(maxComputed, min, max) {
+	var limit = ko.computed(maxComputed);
+	var used = ko.observableIncremental(0, min, max);
+	var computed = ko.computed(function() { return limit() - used() }, 0);
+	computed.used = used;
+	computed.limit = limit;
+	return computed;
 };
 
 function SkillArray(data) {
@@ -29,6 +38,8 @@ function SkillArray(data) {
 	self.longArms = data.longArms || 0;
 	self.blades = data.blades || 0;
 	self.unarmed = data.unarmed || 0;
+	self.counterSpelling = data.counterSpelling || 0;
+	self.spellcasting = data.spellcasting || 0;
 }
 
 var FireModeEnum = function(name, bulletsUsed, defenseMod, causesProgressiveRecoil) {
@@ -199,14 +210,21 @@ function Npc(name, attributes, armor, skills, guns, bonusInitiativeDice, dataPro
 	self.isPC = false;
 	self.edging = ko.observable(false);
 	self.edgePoints = ko.observable(self.edge());
-	self.edgeModifier = ko.computed(function() {
-		return self.edgePoints() > 0 && self.edging() ? self.edge() : 0;
-	});
 	self.useEdge = function() {
 		if (!self.edging() || self.edgePoints() == 0) return 0;
 		self.edgePoints(self.edgePoints() - 1);
 		if (self.edgePoints() == 0) self.edging(false);
 		return self.edge();
+	};
+	self.counterSpellPool = ko.computedResetable(function() { return self.skills.counterSpelling; }, 0);
+	self.sustains = ko.observableIncremental(0);
+	self.globalModifier = ko.computed(function() {
+		var mod = self.sustains() * -2;
+		mod += self.edgePoints() > 0 && self.edging() ? self.edge() : 0;
+		return mod;
+	});
+	self.newCombatTurn = function() {
+		self.counterSpellPool.used(0);
 	};
 
 	var sumModifiers = function(prop) {
@@ -251,7 +269,7 @@ function Npc(name, attributes, armor, skills, guns, bonusInitiativeDice, dataPro
 	self.raiseDefense = function() { self.miscDefenseMod(self.miscDefenseMod() + 1); };
 	self.previouslyDefendedAttacks = ko.observable(0);
 	self.defense = ko.computed(function() { 
-		return self.reaction() + self.intuition() + self.edgeModifier() + self.miscDefenseMod() + self.conditionModifier() - self.previouslyDefendedAttacks(); 
+		return self.reaction() + self.intuition() + self.globalModifier() + self.miscDefenseMod() + self.conditionModifier() - self.previouslyDefendedAttacks(); 
 	});
 	self.startTurn = function() {
 		self.isActive(true);
@@ -279,6 +297,9 @@ function Npc(name, attributes, armor, skills, guns, bonusInitiativeDice, dataPro
 				Status.GoodCover,
 				Status.PartialCover);
 	});
+	self.spellcasting = ko.computed(function() {
+		return self.skills.spellcasting + self.magic() + self.globalModifier() + self.conditionModifier();
+	});
 
 	var DefenseFireMode = function(mode) {
 		var self2 = this;
@@ -297,7 +318,7 @@ function Npc(name, attributes, armor, skills, guns, bonusInitiativeDice, dataPro
 	}
 
 	self.resistanceMiscModifier = ko.observable(0);
-	self.resistance = ko.computed(function() { return self.armor + self.body() + self.resistanceMiscModifier() + self.edgeModifier() });
+	self.resistance = ko.computed(function() { return self.armor + self.body() + self.resistanceMiscModifier() + self.globalModifier() });
 	self.lowerResistance = function() { self.resistanceMiscModifier(self.resistanceMiscModifier() - 1); };
 	self.raiseResistance = function() { self.resistanceMiscModifier(self.resistanceMiscModifier() + 1); };
 
@@ -408,7 +429,7 @@ function Npc(name, attributes, armor, skills, guns, bonusInitiativeDice, dataPro
 	self.matrixDefenses.lower = function() { self.miscMatrixDefense(self.miscMatrixDefense() - 1); };
 	self.matrixDefenses.raise = function() { self.miscMatrixDefense(self.miscMatrixDefense() + 1); };
 	self.matrixResistance = ko.computed(function() {
-		return self.firewall() + self.firewall() + self.edgeModifier(); // todo: device rating
+		return self.firewall() + self.firewall() + self.globalModifier(); // todo: device rating
 	});
 
 	self.clone = function() {
@@ -448,21 +469,11 @@ function MeleeWeapon(name, accuracy, reach, damage, damageType, armorPenetration
 
 	self.setNpc = function(npc) {
 		self.modifier = ko.computed(function() {
-
-			// console.log("-----");
-			// console.log(self.name)
-			// console.log(npc.agility());
-			// console.log(npc.skills[self.linkedSkill]);
-			// console.log(npc.conditionModifier());
-			// console.log(npc.meleeAttackModifiers());
-			// console.log(npc.edgeModifier());
-			// console.log(self.miscModifier());
-
 			return npc.agility() + 
 				npc.skills[self.linkedSkill] + 
 				npc.conditionModifier() + 
 				npc.meleeAttackModifiers() +
-				npc.edgeModifier() +
+				npc.globalModifier() +
 				self.miscModifier();
 		});
 		self.damageValue = ko.computed(function() { return npc.strength() + self.damage });
@@ -501,7 +512,7 @@ function Gun(name, accuracy, damage, damageType, armorPenetration, fireModes, re
 				npc.skills[self.linkedSkill] + 
 				npc.conditionModifier() + 
 				npc.rangedAttackStatusModifier() +
-				npc.edgeModifier() +
+				npc.globalModifier() +
 				self.miscModifier();
 		});
 
@@ -646,6 +657,7 @@ function AppViewModel() {
 			npc.resistanceMiscModifier = data[i++];
 			npc.progressiveRecoil = data[i++];
 			npc.miscMatrixDefense = data[i++];
+			npc.sustains = data[i++];
 
 			var c = data[i++];
 			npc.guns = [];
@@ -738,7 +750,7 @@ function AppViewModel() {
 		loadCompressedEncounter(compressedEncounter);
 	}
 	else if (location.href.indexOf('griffins') != -1) {
-		self.npcs(new Npc('Griffin {0}', new NpcAttributes(8, 6, 4, 8, 4, 3, 5, 1, 1, 0, 6), 0, {unarmed: 7}, [], 0, 0, 0, [MeleeWeapons.Claws()]).cloneMany(4));
+		self.npcs(new Npc('Griffin {0}', new NpcAttributes(8, 6, 4, 8, 4, 3, 5, 1, 1, 0, 6), 0, {unarmed: 7, counterSpelling: 5, spellcasting: 7}, [], 0, 0, 0, [MeleeWeapons.Claws()]).cloneMany(4));
 	}
 	else if (location.href.indexOf('elks') != -1) {
 		self.npcs(new Npc('Elk {0}', new NpcAttributes(11, 3, 4, 9, 3, 2, 3, 1, 1, 0, 6), 0, {unarmed: 5}, [], 0, 0, 0, [MeleeWeapons.Horns()]).cloneMany(3)
@@ -791,6 +803,7 @@ function AppViewModel() {
 			self.npcs()[i].initiative.roll();
 			self.npcs()[i].hasActed(false);
 			self.npcs()[i].isActive(false);
+			self.npcs()[i].newCombatTurn();
 		}
 		self.npcs.sort(sortByInitiative);
 		self.npcs()[0].startTurn();
@@ -876,6 +889,11 @@ function AppViewModel() {
 		generalOutput(meleeWeapon.name + '<br/>' + meleeWeapon.damageValue() + meleeWeapon.damageType + ' DV ' + meleeWeapon.accuracy + ' acc', diceResults);
 	};
 
+	self.rollSpellcasting = function(npc) {
+		var diceResults = roll(npc.spellcasting(), npc.useEdge());
+		generalOutput('Spellcasting', diceResults);
+	};
+
 	self.toggleDefenseModifier = function(npc, modifier, event) {
 		var $target = $(event.target);
 
@@ -937,6 +955,7 @@ function AppViewModel() {
 			p(x.resistanceMiscModifier);
 			p(x.progressiveRecoil);
 			p(x.miscMatrixDefense);
+			p(x.sustains);
 
 			p(x.guns.length);
 			for (var g in x.guns) {
@@ -1094,6 +1113,16 @@ $(function() {
 					<button class="fixed-wide" data-bind="text: label, click: function() { $root.rollGunDefense($parent, $data); }"></button>
 				</span>
 				<button data-bind="text: 'Melee ' + meleeDefense(), click: $root.rollMeleeDefense"></button>
+			</div>
+<!-- magic -->
+			<div class="action-grp">
+				<button data-bind="text: 'Sustains ' + sustains(), event: {contextmenu: sustains.lower}, click: sustains.raise"></button>
+				<button data-bind="text: 'Counterspells ' + counterSpellPool(), event: {contextmenu: counterSpellPool.used.lower}, click: counterSpellPool.used.raise"></button>
+				<button data-bind="text: 'Spellcasting ' + spellcasting(), click: function() { $root.rollSpellcasting($data); }"></button>
+				<button data-bind="text: 'Body Defense ' + physicalSpellDefense(), click: function() { $root.rollSpellcasting($data); }"></button>
+				<button data-bind="text: 'Mana Defense ' + manaSpellDefense(), click: function() { $root.rollSpellcasting($data); }"></button>
+				<button data-bind="text: 'W+L Defense ' + willLogicSpellDefense(), click: function() { $root.rollSpellcasting($data); }"></button>
+				<button data-bind="text: 'L+I Defense ' + logicIntuitionSpellDefense(), click: function() { $root.rollSpellcasting($data); }"></button>
 			</div>
 <!-- matrix defense -->
 			<div class="action-grp">
