@@ -163,7 +163,7 @@ function Initiative(reaction, intuition, bonusDice, dataProcessing, conditionMod
 }
 
 function AddPc(name, reaction, intuition, bonusInitiativeDice, dataProcessing, firewall) {
-	var pc = new Npc(name, new NpcAttributes(0, 0, reaction, 0, 0, 0, intuition, 0, 0, 0, 0), 0, {}, [], bonusInitiativeDice, dataProcessing, firewall);
+	var pc = new Npc(name, new NpcAttributes(0, 0, reaction, 0, 0, 0, intuition, 0, 0, 0, 0), 0, {}, [], bonusInitiativeDice, dataProcessing, firewall, []);
 	pc.isPC = true
 	return pc;
 }
@@ -184,6 +184,7 @@ function NpcAttributes(body, agility, reaction, strength, willpower, logic, intu
 }
 
 function Npc(name, attributes, armor, skills, guns, bonusInitiativeDice, dataProcessing, firewall, meleeWeapons) {
+	console.log('Creating npc ' + name);
 	var self = this;
 	self.activeStatusMenu = ko.observable("hide");
 	self.name = name;
@@ -454,6 +455,7 @@ function Npc(name, attributes, armor, skills, guns, bonusInitiativeDice, dataPro
 		}
 		return npcs;
 	};
+	console.log('Created npc ' + name);
 }
 
 function MeleeWeapon(name, accuracy, reach, damage, damageType, armorPenetration, linkedSkill) {
@@ -550,10 +552,13 @@ var Guns = {
 	AK97: function () { return new Gun('AK-97', 5, 10, 'P', -2, [FireMode.SA,FireMode.BF,FireMode.FA], 0, 38, 'automatics'); },
 	Bow: function (rating) { return new Gun('Bow ' + rating, 6, rating + 2, 'P', -Math.ceil(rating / 4), [FireMode.SS], 0, 99, 'automatics'); },
 	DefianceT250: function () { return new Gun('Defiance T-250', 4, 10, 'P', -1, [FireMode.SS,FireMode.SA,FireMode.SB], 0, 5, 'longArms'); },
+	IngramValiant: function () { return new Gun('Ingram Valiant', 6, 9, 'P', -2, [FireMode.BF,FireMode.FA], 3, 100, 'automatics'); },
+	AresAlpha: function () { return new Gun('Ares Alpha', 7, 11, 'P', -2, [FireMode.SA,FireMode.BF,FireMode.FA], 2, 42, 'automatics'); },
 };
 
 //function MeleeWeapon(name, accuracy, reach, damage, damageType, armorPenetration, linkedSkill) {
 var MeleeWeapons = {
+	Knife: function() { return new MeleeWeapon('Knife', 5, 0, 1, 'P', -1, 'blades') },
 	CombatKnife: function() { return new MeleeWeapon('Combat Knife', 6, 0, 2, 'P', -3, 'blades') },
 	Sword: function() { return new MeleeWeapon('Sword', 6, 1, 3, 'P', -2, 'blades') },
 	ThrowingKnife: function() { return new MeleeWeapon('Throwing Knife', 6, 0, 1, 'P', -1, 'blades') },
@@ -749,30 +754,29 @@ function AppViewModel() {
 		var compressedEncounter = location.href.substring(location.href.indexOf('#')+1);
 		loadCompressedEncounter(compressedEncounter);
 	}
-	else if (location.href.indexOf('griffins') != -1) {
-		self.npcs(new Npc('Griffin {0}', new NpcAttributes(8, 6, 4, 8, 4, 3, 5, 1, 1, 0, 6), 0, {unarmed: 7, counterSpelling: 5, spellcasting: 7}, [], 0, 0, 0, [MeleeWeapons.Claws()]).cloneMany(4));
+	else if (location.href.indexOf('02') != -1) {
+		self.npcs([new Npc('Defense Turret', new NpcAttributes(6, 4, 4, 12, 4, 4, 4, 4, 0, 0, 0), 12, {automatics: 4}, [Guns.IngramValiant()], 3, 4, 4, [])]);
 	}
-	else if (location.href.indexOf('elks') != -1) {
-		self.npcs(new Npc('Elk {0}', new NpcAttributes(11, 3, 4, 9, 3, 2, 3, 1, 1, 0, 6), 0, {unarmed: 5}, [], 0, 0, 0, [MeleeWeapons.Horns()]).cloneMany(3)
-			.concat(new Npc('Grandfather Elk', new NpcAttributes(11, 4, 4, 9, 6, 3, 6, 3, 3, 0, 6), 0, {unarmed: 7}, [], 0, 0, 0, [MeleeWeapons.Horns()])));
+	else if (location.href.indexOf('03') != -1) {
+		self.npcs(new Npc('Hellhound Ganger', new NpcAttributes(4, 4, 4, 4, 3, 2, 3, 3, 1, 0, 6), 10, {unarmed: 3, blades: 4, pistols: 4}, [Guns.BrowningUltraPower()], 
+			1, 3, 3, [MeleeWeapons.Knife()]).cloneMany(12));
 	}
-	else if (location.href.indexOf('werewolfs') != -1) {
-		self.npcs([new Npc('Dolph Adept', new NpcAttributes(7, 6, 8, 5, 5, 2, 4, 3, 3, 6, 6), 0, {unarmed: 6}, [], 3, 0, 0, [MeleeWeapons.Bite(3)])]
-			.concat([new Npc('Daciana Shaman', new NpcAttributes(4, 3, 5, 3, 5, 3, 4, 5, 4, 6, 6), 0, {unarmed: 9}, [], 0, 0, 0, [MeleeWeapons.Bite(1)])])
-			.concat([new Npc('Spirit of Beasts', new NpcAttributes(8, 7, 6, 8, 6, 6, 6, 6, 3, 6, 6), 0, {unarmed: 6}, [], 1, 0, 0, [MeleeWeapons.Natural(0)])]));
-	}
-	else if (location.href.indexOf('boars') != -1) {
-		self.npcs([new Npc('Golden Boar', new NpcAttributes(7, 5, 4, 9, 5, 2, 5, 1, 2, 0, 6), 0, {unarmed: 7}, [], 0, 0, 0, [MeleeWeapons.Natural(2)])]);
+	else if (location.href.indexOf('04') != -1) {
+		self.npcs([
+			new Npc('Gunner 1', new NpcAttributes(4, 6, 6, 5, 5, 2, 4, 3, 3, 0, 6), 0, {unarmed: 6, automatics: 6, blades: 5}, [Guns.AresAlpha()], 3, 0, 0, [MeleeWeapons.CombatKnife()]), 
+			new Npc('Gunner 2', new NpcAttributes(4, 6, 6, 5, 5, 2, 4, 3, 3, 0, 6), 0, {unarmed: 6, automatics: 6, blades: 5}, [Guns.AresAlpha()], 3, 0, 0, [MeleeWeapons.CombatKnife()]),
+			new Npc('Sniper', new NpcAttributes(4, 6, 6, 5, 5, 2, 4, 3, 3, 0, 6), 0, {unarmed: 6, automatics: 6, blades: 5}, [Guns.AresAlpha()], 3, 0, 0, [MeleeWeapons.CombatKnife()]),
+			new Npc('Sniper', new NpcAttributes(4, 6, 6, 5, 5, 2, 4, 3, 3, 0, 6), 0, {unarmed: 6, automatics: 6, blades: 5}, [Guns.AresAlpha()], 3, 0, 0, [MeleeWeapons.CombatKnife()])
+		]);
 	}
 
 //function AddPc(name, reaction, intuition, bonusInitiativeDice, dataProcessing, firewall) {
-	self.npcs.push(AddPc('Ben', 3, 6, 0, 5, 6));
-	self.npcs.push(AddPc('Adam', 7, 4, 2, 3, 3));
-	self.npcs.push(AddPc('Bill', 4, 3, 0, 3, 3));
-	self.npcs.push(AddPc('Jim', 3, 4, 0, 6, 6));
-	self.npcs.push(AddPc('Aaron', 7, 5, 0, 3, 3));
+	self.npcs.push(AddPc('Gunther', 4, 4, 0, 4, 4));
+	self.npcs.push(AddPc('Odder', 4, 5, 0, 2, 2));
+	self.npcs.push(AddPc('SIMaeon', 2, 5, 0, 4, 3));
+	self.npcs.push(AddPc('Takashi', 6, 4, 1, 6, 6));
 	self.npcs.push(AddPc('Roto Drone', 3, 3, 3, 6, 6));
-	self.npcs.push(AddPc('Steel Lynx Drone', 3, 3, 3, 6, 6));
+	self.npcs.push(AddPc('Roto Drone', 3, 3, 3, 6, 6));
 
 	self.attackModifiers = Status.attackModifiers();
 	self.defenseModifiers = Status.defenseModifiers();
@@ -1119,10 +1123,10 @@ $(function() {
 				<button data-bind="text: 'Sustains ' + sustains(), event: {contextmenu: sustains.lower}, click: sustains.raise"></button>
 				<button data-bind="text: 'Counterspells ' + counterSpellPool(), event: {contextmenu: counterSpellPool.used.lower}, click: counterSpellPool.used.raise"></button>
 				<button data-bind="text: 'Spellcasting ' + spellcasting(), click: function() { $root.rollSpellcasting($data); }"></button>
-				<button data-bind="text: 'Body Defense ' + physicalSpellDefense(), click: function() { $root.rollSpellcasting($data); }"></button>
+				<!--<button data-bind="text: 'Body Defense ' + physicalSpellDefense(), click: function() { $root.rollSpellcasting($data); }"></button>
 				<button data-bind="text: 'Mana Defense ' + manaSpellDefense(), click: function() { $root.rollSpellcasting($data); }"></button>
 				<button data-bind="text: 'W+L Defense ' + willLogicSpellDefense(), click: function() { $root.rollSpellcasting($data); }"></button>
-				<button data-bind="text: 'L+I Defense ' + logicIntuitionSpellDefense(), click: function() { $root.rollSpellcasting($data); }"></button>
+				<button data-bind="text: 'L+I Defense ' + logicIntuitionSpellDefense(), click: function() { $root.rollSpellcasting($data); }"></button>-->
 			</div>
 <!-- matrix defense -->
 			<div class="action-grp">
