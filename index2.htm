@@ -40,6 +40,7 @@ function SkillArray(data) {
 	self.unarmed = data.unarmed || 0;
 	self.counterSpelling = data.counterSpelling || 0;
 	self.spellcasting = data.spellcasting || 0;
+	self.clubs = data.clubs || 0;
 }
 
 var FireModeEnum = function(name, bulletsUsed, defenseMod, causesProgressiveRecoil) {
@@ -474,8 +475,8 @@ function MeleeWeapon(name, accuracy, reach, damage, damageType, armorPenetration
 			return npc.agility() + 
 				npc.skills[self.linkedSkill] + 
 				npc.conditionModifier() + 
-				npc.meleeAttackModifiers() +
-				npc.globalModifier() +
+				npc.meleeAttackModifiers() + 
+				npc.globalModifier() + 
 				self.miscModifier();
 		});
 		self.damageValue = ko.computed(function() { return npc.strength() + self.damage });
@@ -547,7 +548,8 @@ var Guns = {
 	AresPredatorV: function () { return new Gun('Ares Predator V', 5, 8, 'P', -1, [FireMode.SA,FireMode.SB], 0, 15, 'pistols'); },
 	BrowningUltraPower: function () { return new Gun('Browning Ultra-Power', 6, 8, 'P', -1, [FireMode.SA,FireMode.SB], 0, 10, 'pistols'); },
 	RugerSuperWarhawk: function () { return new Gun('Ruger Super Warhawk', 5, 9, 'P', -2, [FireMode.SS], 0, 6, 'pistols'); },
-	ColtGovernment2066: function () { return new Gun('Colt Government 2066', 6, 7, 'P', -1, [FireMode.SA,FireMode.SB], 0, 14, 'pistols'); },
+	ColtGovernment2066: function () { return new Gun('Colt Government 2066', 6, 7, 'P', -1, [FireMode.SA,FireMode.SB], 0, 11, 'pistols'); },
+	ColtAmericaL36: function () { return new Gun('Colt America L36', 7, 7, 'P', 0, [FireMode.SA,FireMode.SB], 0, 14, 'pistols'); },
 	ColtCobraTZ120: function () { return new Gun('Colt Cobra TZ-120', 5, 7, 'P', 0, [FireMode.SA,FireMode.BF,FireMode.FA], 3, 32, 'automatics'); },
 	AK97: function () { return new Gun('AK-97', 5, 10, 'P', -2, [FireMode.SA,FireMode.BF,FireMode.FA], 0, 38, 'automatics'); },
 	Bow: function (rating) { return new Gun('Bow ' + rating, 6, rating + 2, 'P', -Math.ceil(rating / 4), [FireMode.SS], 0, 99, 'automatics'); },
@@ -558,6 +560,8 @@ var Guns = {
 
 //function MeleeWeapon(name, accuracy, reach, damage, damageType, armorPenetration, linkedSkill) {
 var MeleeWeapons = {
+	Club: function() { return new MeleeWeapon('Club', 4, 1, 3, 'P', -1, 'clubs') },
+	Unarmed: function() { return new MeleeWeapon('Unarmed', 7, 0, 0, 'S', 0, 'unarmed') }, // fix accuracy
 	Knife: function() { return new MeleeWeapon('Knife', 5, 0, 1, 'P', -1, 'blades') },
 	CombatKnife: function() { return new MeleeWeapon('Combat Knife', 6, 0, 2, 'P', -3, 'blades') },
 	Sword: function() { return new MeleeWeapon('Sword', 6, 1, 3, 'P', -2, 'blades') },
@@ -566,6 +570,7 @@ var MeleeWeapons = {
 	Horns: function() { return new MeleeWeapon('Horns', 8, 1, 5, 'P', 0, 'unarmed') },
 	Bite: function(damage) { return new MeleeWeapon('Horns', 8, 1, damage, 'P', 0, 'unarmed') },
 	Natural: function(damage) { return new MeleeWeapon('Natural', 8, 0, damage, 'P', 0, 'unarmed') },
+	Knucks: function() { return new MeleeWeapon('Knucks', 7, 0, 1, 'P', 0, 'unarmed')} // fix accuracy
 };
 
 function log(success, msg) {
@@ -748,11 +753,35 @@ function AppViewModel() {
 
 //function Npc(name, attributes, armor, skills, guns, bonusInitiativeDice, dataProcessing, firewall, meleeWeapons) {
 //function NpcAttributes(body, agility, reaction, strength, willpower, logic, intuition, charisma, edge, magic, essence) {
-
 	self.npcs = ko.observableArray([]);
 	if (location.href.indexOf('#') != -1) {
 		var compressedEncounter = location.href.substring(location.href.indexOf('#')+1);
 		loadCompressedEncounter(compressedEncounter);
+	}
+	else if (location.href.indexOf('01') != -1) {
+		self.npcs([
+			new Npc('Vincenzo "Vic" Fratelli', 
+				new NpcAttributes(5, 5, 4, 4, 4, 3, 4, 4, 1, 0, 5), 10,
+				{unarmed: 2, pistols: 3}, 
+				[Guns.AresPredatorV()], 0, 3, 3, [MeleeWeapons.Knucks()]),
+			new Npc('Franco "Frank" Fratelli', 
+				new NpcAttributes(4, 4, 3, 3, 5, 4, 3, 4, 1, 5, 6), 8,
+				{unarmed: 2, pistols: 2, spellcasting: 2}, 
+				[Guns.ColtAmericaL36()], 0, 3, 3, [MeleeWeapons.Unarmed()]),
+			new Npc('Demetrio "Dipsy" Fratelli',
+				new NpcAttributes(4, 3, 4, 5, 2, 2, 2, 3, 1, 0, 5.9), 10,
+				{unarmed: 2, pistols: 3, clubs: 4},
+				[Guns.ColtAmericaL36()], 0, 3, 3, [MeleeWeapons.Unarmed(), new MeleeWeapon('Mop', 4, 2, 8, 'S', 0, 'clubs')]),
+			new Npc('Patrizo "Patsy" Fratelli', 
+				new NpcAttributes(4, 4, 4, 3, 3, 4, 3, 3, 1, 0, 6), 8,
+				{unarmed: 3, pistols: 3, computer: 3, hacking: 3, perception: 3}, 
+				[Guns.AresPredatorV()], 0, 4, 5, [MeleeWeapons.Unarmed()]),
+			new Npc('Luciano "Lucy" Fratelli', 
+				new NpcAttributes(5, 4, 3, 6, 4, 3, 4, 3, 1, 0, 4.5), 12,
+				{unarmed: 3, pistols: 3}, 
+				[Guns.ColtGovernment2066()], 0, 3, 3, [MeleeWeapons.Knucks()]),
+//function MeleeWeapon(name, accuracy, reach, damage, damageType, armorPenetration, linkedSkill) {
+		]);
 	}
 	else if (location.href.indexOf('02') != -1) {
 		self.npcs([new Npc('Defense Turret', new NpcAttributes(6, 4, 4, 12, 4, 4, 4, 4, 0, 0, 0), 12, {automatics: 4}, [Guns.IngramValiant()], 3, 4, 4, [])]);
