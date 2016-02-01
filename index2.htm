@@ -532,7 +532,14 @@ function Gun(name, accuracy, damage, damageType, armorPenetration, fireModes, re
 	self.smartLinkOn = ko.observable(true);
 	self.hasSmartLink = hasSmartLink;
 
+	self.smartLink = function() {
+		self.hasSmartLink = true;
+		self.smartLinkModifier(2);
+		return self;
+	};
+
 	self.smartLinkModifier = ko.observable(self.hasSmartLink ? 2 : 0);
+	self.smartLinkStatus = ko.observable('Implanted');
 	self.toggleSmartLink = function() {
 		switch (self.smartLinkStatus())
 		{
@@ -549,7 +556,6 @@ function Gun(name, accuracy, damage, damageType, armorPenetration, fireModes, re
 				self.smartLinkModifier(2);
 		}
 	};
-	self.smartLinkStatus = ko.observable('Implanted');
 	self.smartLinkLabel = ko.computed(function() {
 		return 'SmartLink ' + self.smartLinkStatus();
 	});
@@ -729,20 +735,8 @@ function AppViewModel() {
 //function MeleeWeapon(name, accuracy, reach, damage, damageType, armorPenetration, linkedSkill) {
 		]);
 	}
-	else if (location.href.indexOf('02') != -1) {
-		self.npcs([new Npc('Defense Turret', new NpcAttributes(6, 4, 4, 12, 4, 4, 4, 4, 0, 0, 0), 12, {automatics: 4}, [Guns.IngramValiant()], 3, 4, 4, [])]);
-	}
-	else if (location.href.indexOf('03') != -1) {
-		self.npcs(new Npc('Hellhound Ganger', new NpcAttributes(4, 4, 4, 4, 3, 2, 3, 3, 1, 0, 6), 10, {unarmed: 3, blades: 4, pistols: 4}, [Guns.BrowningUltraPower()], 
-			1, 3, 3, [MeleeWeapons.Knife()]).cloneMany(12));
-	}
-	else if (location.href.indexOf('04') != -1) {
-		self.npcs([
-			new Npc('Gunner 1', new NpcAttributes(4, 6, 6, 5, 5, 2, 4, 3, 3, 0, 6), 0, {unarmed: 6, automatics: 6, blades: 5}, [Guns.AresAlpha()], 3, 0, 0, [MeleeWeapons.CombatKnife()]), 
-			new Npc('Gunner 2', new NpcAttributes(4, 6, 6, 5, 5, 2, 4, 3, 3, 0, 6), 0, {unarmed: 6, automatics: 6, blades: 5}, [Guns.AresAlpha()], 3, 0, 0, [MeleeWeapons.CombatKnife()]),
-			new Npc('Sniper', new NpcAttributes(4, 6, 6, 5, 5, 2, 4, 3, 3, 0, 6), 0, {unarmed: 6, automatics: 6, blades: 5}, [Guns.AresAlpha()], 3, 0, 0, [MeleeWeapons.CombatKnife()]),
-			new Npc('Mage', new NpcAttributes(4, 6, 6, 5, 5, 2, 4, 3, 3, 0, 6), 0, {unarmed: 6, automatics: 6, blades: 5}, [Guns.AresAlpha()], 3, 0, 0, [MeleeWeapons.CombatKnife()])
-		]);
+	else if (location.href.indexOf('01') != -1) {
+		self.npcs([new Npc('Cyber Zombie', new NpcAttributes(8, 6, 4, 6, 4, 3, 5, 2, 0, 0, 2), 10, {automatics: 4}, [Guns.AK97().smartLink(), Guns.IngramValiant().smartLink()], 3, 3, 3, [])]);
 	}
 
 //function AddPc(name, reaction, intuition, bonusInitiativeDice, dataProcessing, firewall) {
