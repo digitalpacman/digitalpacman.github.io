@@ -9,6 +9,15 @@
 	margin: 5px auto;
 	min-width: 650px;
 	clear: both;
+	min-height: 254px;
+}
+.character-card {
+	float: left;
+	width: 500px;
+	min-width: auto;
+	border: 1px solid black;
+	margin: 5px;
+	padding: 5px;
 }
 .npc {
 }
@@ -19,22 +28,28 @@
 	margin: 5px 0;
 	clear: both;
 }
-.character .name {
+.character-name {
 	margin: 0 0 10px 0;
 	font-size: 18px;
+}
+.initiative {
+	font-weight: normal;
 }
 .modifier {
 	padding: 3px 5px;
 	border: 0;
 	background-color: lightgray;
-	width: 24%;
-	margin-right: 1%;
+	width: 150px;
+	margin-right: 10px;
 	display: block;
 	float: left;
 	margin-top: 4px;
+	text-align: center;
+	font-size: 11px;
+	cursor: pointer;
 }
 .modifier.on {
-	font-weight: bold;
+	background-color: #99ff99;
 }
 br {
 	clear: both;
@@ -48,8 +63,14 @@ button.fixed-wide {
 	right: 10px;
 	top: 10px;
 }
+.character-card {
+	background-color: #999;
+}
+.canAct {
+	background-color: #fff;
+}
 .active {
-	background-color: #F0FFF0;
+	background-color: #c0ffc0;
 }
 .statline {
 	margin: 0;
@@ -69,14 +90,31 @@ button.fixed-wide {
 body {
 	font-family: verdana;
 	font-size: 16px;
+	overflow-y: scroll;
 }
 button {
 	font-family: verdana;
 	font-size: 11px;
 }
-.defense-status-mods, .attack-status-mods {
-	display: none;
+.action-icon {
+	width: 50px;
+	border: 1px solid black;
+	font-size: 12px;
+	padding: 10px;
+	text-align: center;
+	cursor: pointer;
+	float: left;
+	margin-right: 10px;
 }
-.defense-status-mods.on, .attack-status-mods.on {
-	display: block;
+.smart-link-toggle {
+	width: 136px;
+}
+.gun-label {
+	width: 150px;
+}
+.disabled-characters {
+	background-color: gray;
+}
+.unconcious {
+	color: red;
 }
