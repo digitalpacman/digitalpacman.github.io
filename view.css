@@ -1,3 +1,9 @@
+* {
+    -webkit-user-select: none; /* webkit (safari, chrome) browsers */
+    -moz-user-select: none; /* mozilla browsers */
+    -khtml-user-select: none; /* webkit (konqueror) browsers */
+    -ms-user-select: none; /* IE10+ */
+}
 .incremental {
 	cursor: pointer;
 }
@@ -11,22 +17,30 @@
 	clear: both;
 	min-height: 254px;
 }
-.character-card {
-	float: left;
-	width: 500px;
-	min-width: auto;
-	border: 1px solid black;
-	margin: 5px;
-	padding: 5px;
-}
 .npc {
 }
 .pc {
 
 }
 .action-grp {
-	margin: 5px 0;
-	clear: both;
+	display: flex;
+	margin-bottom: 10px;
+}
+.action-grp .action-grp {
+	margin-bottom: 0;
+}
+.action {
+	border: 1px solid black;
+	font-size: 12px;
+	padding: 10px;
+	text-align: center;
+	cursor: pointer;
+	border-right-width: 0;
+	width: 190px;
+}
+.action-grp.last > .action:last-child,
+.action.last {
+	border-right-width: 1px;	
 }
 .character-name {
 	margin: 0 0 10px 0;
@@ -35,42 +49,30 @@
 .initiative {
 	font-weight: normal;
 }
+.status-mods {
+	display: flex;
+	align-content: stretch;
+}
 .modifier {
-	padding: 3px 5px;
-	border: 0;
-	background-color: lightgray;
-	width: 150px;
-	margin-right: 10px;
-	display: block;
-	float: left;
-	margin-top: 4px;
+	border: 1px solid black;
+	font-size: 12px;
+	padding: 10px;
 	text-align: center;
-	font-size: 11px;
 	cursor: pointer;
+	border-right-width: 0;
+	width: 190px;
+	flex-wrap: wrap;
+}
+.modifier:last-child {
+	border-right-width: 1px;	
 }
 .modifier.on {
 	background-color: #99ff99;
-}
-br {
-	clear: both;
-	height:0px;
-}
-button.fixed-wide {
-	width: 75px;
 }
 .end-turn {
 	position: absolute;
 	right: 10px;
 	top: 10px;
-}
-.character-card {
-	background-color: #999;
-}
-.canAct {
-	background-color: #fff;
-}
-.active {
-	background-color: #c0ffc0;
 }
 .statline {
 	margin: 0;
@@ -96,6 +98,23 @@ button {
 	font-family: verdana;
 	font-size: 11px;
 }
+.unconcious {
+	color: red;
+}
+.character-cards {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	align-content: flex-start;
+	align-items: flex-start;
+}
+.character-card {
+	flex-basis: 32%;
+	padding: 10px;
+}
+.character-action-categories {
+	display: flex;
+}
 .action-icon {
 	width: 50px;
 	border: 1px solid black;
@@ -103,18 +122,26 @@ button {
 	padding: 10px;
 	text-align: center;
 	cursor: pointer;
-	float: left;
-	margin-right: 10px;
+	border-right-width: 0;
 }
-.smart-link-toggle {
-	width: 136px;
+.action-icon:last-child {
+	border-right-width: 1px;	
 }
-.gun-label {
-	width: 150px;
+.character-cards.disabled {
+	background-color: #bbb;
 }
-.disabled-characters {
-	background-color: gray;
+.selected {
+	background-color: #99ccff;
 }
-.unconcious {
-	color: red;
+.acting {
+	background-color: #ccffcc;
+}
+.disable-stun-condition {
+	color: #999;
+}
+.edge {
+	color: #999;
+}
+.edging {
+	color: inherit;
 }
