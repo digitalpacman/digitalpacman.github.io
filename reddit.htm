@@ -37,14 +37,14 @@
       method: method,
       contentType: false,
       headers: {
-        Authorization: "bearer " + token
+        "Authorization": "Bearer " + token
       },
       success: success
     });
   }
 
   function readProfile() {
-    callApi(window.token, "GET", "https://www.reddit.com/api/v1/me", function(data) {
+    callApi(window.token, "GET", "https://oauth.reddit.com/api/v1/me", function(data) {
       alert(data)
     })
   }
