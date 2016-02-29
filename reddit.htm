@@ -7,7 +7,7 @@
 
 <script>
   function auth() {
-    location.href = "https://www.reddit.com/api/v1/authorize?client_id=YLjftky9J_8E7A&response_type=token&state=test&redirect_uri=http://digitalpacman.github.io/reddit.htm&scope=identity";
+    location.href = "https://www.reddit.com/api/v1/authorize?client_id=YLjftky9J_8E7A&response_type=token&state=test&redirect_uri=http://digitalpacman.github.io/reddit.htm&scope=identity,submit,save,read";
   }
 
   function getParameterByName(name, url) {
@@ -32,9 +32,9 @@
     }
   })
 
-  function callApi(token, method, url, success) {
+  function getApi(token, url, success) {
     $.ajax(url, {
-      method: method,
+      method: "GET",
       contentType: false,
       headers: {
         "Authorization": "Bearer " + token
@@ -43,9 +43,61 @@
     });
   }
 
+  function postApi(token, url, data, success) {
+    $.ajax(url, {
+      method: "POST",
+      contentType: false,
+      data: JSON.stringify(data),
+      processData: false,
+      headers: {
+        "Authorization": "Bearer " + token
+      },
+      success: success
+    });
+  }
+
   function readProfile() {
-    callApi(window.token, "GET", "https://oauth.reddit.com/api/v1/me", function(data) {
-      alert(data)
+    getApi(window.token, "https://oauth.reddit.com/api/v1/me", function(data) {
+      console.log(data)
+      $("#name").html(data.name);
+      $("#createddate").html(new Date(data.created * 1000));
+    })
+  }
+
+  function hotArticles() {
+    getApi(window.token, "https://oauth.reddit.com/hot", function(data) {
+      console.log(data);
+      var html = "";
+      for (var i = 0; i < data.data.children.length; i++) {
+        html += '<h4><a href="' + data.data.children[i].data.url + '">' + data.data.children[i].data.title + '</a></h6>';
+      }
+      $("#articles").html(html);
+    })
+  }
+
+  function newArticles() {
+    getApi(window.token, "https://oauth.reddit.com/new", function(data) {
+      console.log(data);
+      var html = "";
+      for (var i = 0; i < data.data.children.length; i++) {
+        html += '<h4><a href="' + data.data.children[i].data.url + '">' + data.data.children[i].data.title + '</a></h6>';
+      }
+      $("#articles").html(html);
+    })
+  }
+
+  function submitPost(title, text) {
+    postApi(window.token, "https://oauth.reddit.com/api/submit", {
+        api_type: "json",
+        extension: "json",
+        sr: "test",
+        title: title,
+        kind: "self",
+        text: text
+      }, function(data) {
+      console.log(data)
+      $("#name").html(data.name);
+      $("#createddate").html(new Date(data.created * 1000));
     })
   }
 </script>
@@ -55,7 +107,12 @@
 <div id="authView">
 <p>authorized</p>
 <button onclick="readProfile()">Read my profile</button>
+<button onclick="submitPost('wut', 'text post')">Make a text post</button>
+<button onclick="hotArticles()">Hot Articles</button>
+<button onclick="newArticles()">New Articles</button>
 
+<p>You're <span id="name"></span> and you created your account on <span id="createddate"></span></p>
+<p id="articles"></p>
 </div>
 </body>
 </html>
