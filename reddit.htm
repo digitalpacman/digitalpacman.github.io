@@ -7,7 +7,7 @@
 
 <script>
   function auth() {
-    location.href = "https://www.reddit.com/api/v1/authorize?client_id=muzLE6gaNbWa2A&response_type=code&state=test&redirect_uri=http://digitalpacman.github.io/reddit.htm&duration=temporary&scope=identity";
+    location.href = "https://www.reddit.com/api/v1/authorize?client_id=YLjftky9J_8E7A&response_type=token&state=test&redirect_uri=http://digitalpacman.github.io/reddit.htm&scope=identity";
   }
 
   function getParameterByName(name, url) {
@@ -21,18 +21,21 @@
   }
 
   $(function() {
-    var authCode = getParameterByName("code");
+    var authCode = getParameterByName("access_token");
     if (authCode) {
-      $.ajax("https://www.reddit.com/api/v1/access_token", {
-        method: "POST",
-        data: "grant_type=authorization_code&code=" + authCode + "&redirect_uri=http://digitalpacman.github.io/reddit.html",
-        success: function(data) {
-          alert(data.access_token)
-        }
-      })
+      $("#authView").show();
+      $("#unauthView").hide();
+    }
+    else {
+      $("#authView").hide();      
     }
   })
 </script>
-<button onclick="auth()">Login</button>
+<div id="unauthView">
+  <button onclick="auth()">Login</button>
+</div>
+<div id="authView">
+authorized
+</div>
 </body>
 </html>
