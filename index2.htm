@@ -26,8 +26,8 @@ ko.observableIncremental = function(value, min, max) {
 
 ko.toggle = function(startingValue) {
   var observable = ko.observable(startingValue);
-  observable.toggle = function() { observable(!observable()) };
-  return observable;  
+  observable.toggle = function() { observable(!observable()); return observable; };
+  return observable;
 };
 
 ko.singleToggle = function(startingValue, property) {
@@ -38,6 +38,7 @@ ko.singleToggle = function(startingValue, property) {
     }
     value[property](true);
     observable(value);
+    return observable;
   };
   return observable;
 };
@@ -763,11 +764,12 @@ function AppViewModel() {
 //function AddPc(name, reaction, intuition, bonusInitiativeDice, dataProcessing, firewall) {
 	self.npcs.push(AddPc('Rickson', 5, 5, 0, 4, 4));
 	self.npcs.push(AddPc('Kranktz', 5, 5, 0, 2, 2));
-	self.npcs.push(AddPc('Taco', 4, 5, 0, 5, 7));
+  self.npcs.push(AddPc('Taco', 4, 5, 0, 5, 7));
+  self.npcs.push(AddPc('Murphy', 4, 5, 0, 5, 7));
 	self.npcs.push(AddPc('Stew', 5, 4, 0, 6, 6));
-	self.npcs.push(AddPc('Roto Drone', 3, 3, 3, 6, 6));
-	self.npcs.push(AddPc('Roto Drone', 3, 3, 3, 6, 6));
-	self.npcs.push(AddPc('Doberman', 3, 3, 3, 6, 6));
+	self.npcs.push(AddPc('Roto Drone', 3, 3, 3, 6, 6).inactive(true));
+	self.npcs.push(AddPc('Roto Drone', 3, 3, 3, 6, 6).inactive(true));
+	self.npcs.push(AddPc('Doberman', 3, 3, 3, 6, 6).inactive(true));
 
 	self.selectCharacter('Attack', self.npcs()[0]);
 

@@ -104,7 +104,6 @@ button {
 .character-cards {
 	display: flex;
 	flex-wrap: wrap;
-	justify-content: center;
 	align-content: flex-start;
 	align-items: flex-start;
 }
@@ -131,7 +130,6 @@ button {
 	background-color: #bbb;
 }
 .selected {
-	background-color: #99ccff;
 }
 .acting {
 	background-color: #ccffcc;
